@@ -4,5 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+color-eyre = "0.6.5"
+eframe = "0.32.0"
+egui_extras = "0.32.0"
 memchr = "2.7.5"
 memmap2 = "0.9.7"
+rfd = "0.13.0"

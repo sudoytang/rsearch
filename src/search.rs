@@ -1,87 +1,135 @@
-use memchr::memmem;
+use std::{
+    sync::mpsc, thread::{
+        self, 
+        JoinHandle
+    }
+};
 
+use memchr::memmem;
+use color_eyre::{eyre::eyre, Result as EyreReult};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Endianness {
     BigEndian,
     LittleEndian,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum SearchNeedle<'n> {
+pub enum Needle<'n> {
     U8(u8),
     I8(i8),
-    U16(u16),
-    I16(i16),
-    U32(u32),
-    I32(i32),
-    U64(u64),
-    I64(i64),
+    U16(Endianness, u16),
+    I16(Endianness, i16),
+    U32(Endianness, u32),
+    I32(Endianness, i32),
+    U64(Endianness, u64),
+    I64(Endianness, i64),
     Bytes(&'n[u8]),
     Str(&'n str),
 }
 
-pub struct Search<'n> {
-    endianness: Endianness,
-    needle: SearchNeedle<'n>
-}
-
-pub enum SearchIter<'h> {
-    Chr(memchr::Memchr<'h>),
-    Mem(memmem::FindIter<'h, 'static>),
-}
-
-impl<'h> From<memchr::Memchr<'h>> for SearchIter<'h> {
-    fn from(value: memchr::Memchr<'h>) -> Self {
-        SearchIter::Chr(value)
+impl<'n> From<&'n str> for Needle<'n> {
+    fn from(value: &'n str) -> Self {
+        Self::Str(value)
     }
 }
 
-impl<'h, 'n> From<memmem::FindIter<'h, 'static>> for SearchIter<'h> {
-    fn from(value: memmem::FindIter<'h, 'static>) -> Self {
-        SearchIter::Mem(value)
+impl<'n> From<&'n [u8]> for Needle<'n> {
+    fn from(value: &'n [u8]) -> Self {
+        Self::Bytes(value)
     }
 }
 
-impl<'h> Iterator for SearchIter<'h> {
-    type Item = usize;
+struct NeedleOwned {
+    needle: Box<[u8]>
+}
+impl<'n> From<Needle<'n>> for NeedleOwned {
+    fn from(value: Needle<'n>) -> Self {
+        use Endianness::BigEndian as BE;
+        use Endianness::LittleEndian as LE;
+        use Needle::*;
+        let needle: Box<[u8]> = match value {
+            U8(v) => Box::new([v]),
+            I8(v) => Box::new([v as u8]),
+            Bytes(v) => v.into(),
+            Str(v) => v.as_bytes().into(),
+            U16(BE, v) => Box::new(v.to_be_bytes()),
+            U16(LE, v) => Box::new(v.to_le_bytes()),
+            I16(BE, v) => Box::new(v.to_be_bytes()),
+            I16(LE, v) => Box::new(v.to_le_bytes()),
+            U32(BE, v) => Box::new(v.to_be_bytes()),
+            U32(LE, v) => Box::new(v.to_le_bytes()),
+            I32(BE, v) => Box::new(v.to_be_bytes()),
+            I32(LE, v) => Box::new(v.to_le_bytes()),
+            U64(BE, v) => Box::new(v.to_be_bytes()),
+            U64(LE, v) => Box::new(v.to_le_bytes()),
+            I64(BE, v) => Box::new(v.to_be_bytes()),
+            I64(LE, v) => Box::new(v.to_le_bytes()),
+        };
+        Self { needle }
+    }
+}
 
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            SearchIter::Chr(c) => c.next(),
-            SearchIter::Mem(m) => m.next()
+
+pub struct AsyncSearch {
+    join_handle: JoinHandle<()>,
+    receiver: mpsc::Receiver<usize>,
+}
+
+pub enum SearchState {
+    Pending,
+    Finished,
+}
+
+impl AsyncSearch {
+
+    pub fn create<'s, H, S>(haystack: H, s: S) -> Self 
+    where
+        H: AsRef<[u8]> + Send + 'static,
+        S: Into<Needle<'s>>,
+    {
+        let s_owned: NeedleOwned = s.into().into();
+        let (tx, rx) = mpsc::channel();
+        let join_handle = thread::spawn(move || {
+            let hs = haystack.as_ref();
+            let it = memmem::find_iter(hs, &s_owned.needle);
+            for n in it {
+                if tx.send(n).is_err() {
+                    break;
+                }
+            }
+        });
+        Self {
+            join_handle,
+            receiver: rx,
         }
     }
-}
 
-
-
-pub fn search<'h, 'n>(haystack: &'h[u8], s: Search<'n>) -> SearchIter<'h> 
-where
-    'h: 'n,
-{
-    use Endianness::BigEndian as BE;
-    use Endianness::LittleEndian as LE;
-    use SearchNeedle::*;
-    match (s.endianness, s.needle) {
-        (_, U8(needle)) => memchr::memchr_iter(needle, haystack).into(),
-        (_, I8(needle)) => memchr::memchr_iter(needle as u8, haystack).into(),
-        (BE, U16(v)) => search_bytes(haystack, &v.to_be_bytes()),
-        (LE, U16(v)) => search_bytes(haystack, &v.to_le_bytes()),
-        (BE, I16(v)) => search_bytes(haystack, &v.to_be_bytes()),
-        (LE, I16(v)) => search_bytes(haystack, &v.to_le_bytes()),
-        (BE, U32(v)) => search_bytes(haystack, &v.to_be_bytes()),
-        (LE, U32(v)) => search_bytes(haystack, &v.to_le_bytes()),
-        (BE, I32(v)) => search_bytes(haystack, &v.to_be_bytes()),
-        (LE, I32(v)) => search_bytes(haystack, &v.to_le_bytes()),
-        (BE, U64(v)) => search_bytes(haystack, &v.to_be_bytes()),
-        (LE, U64(v)) => search_bytes(haystack, &v.to_le_bytes()),
-        (BE, I64(v)) => search_bytes(haystack, &v.to_be_bytes()),
-        (LE, I64(v)) => search_bytes(haystack, &v.to_le_bytes()),
-        (_, Bytes(needle)) => search_bytes(haystack, needle),
-        (_, Str(needle)) => search_bytes(haystack, needle.as_bytes()),
+    pub fn try_get(&self) -> Result<usize, SearchState> {
+        self.receiver.try_recv().map_err(|try_recv_err| {
+            match try_recv_err {
+                mpsc::TryRecvError::Empty => SearchState::Pending,
+                mpsc::TryRecvError::Disconnected => SearchState::Finished,
+            }
+        })
     }
-}
 
+    pub fn drain<F>(&self, mut callback: F) -> SearchState
+    where
+        F: FnMut(usize) -> (),
+    {
+        loop {
+            match self.try_get() {
+                Ok(v) => callback(v),
+                Err(e) => return e
+            }
+        }
+    }
 
-fn search_bytes<'h>(haystack: &'h [u8], needle: &[u8]) -> SearchIter<'h> {
-    SearchIter::Mem(memmem::find_iter(haystack, needle).into_owned())
+    pub fn cancel(self) -> EyreReult<()> {
+        drop(self.receiver);
+        self.join_handle.join().map_err(|_| {
+            eyre!("Sub-thread panicked")
+        })
+    }
 }
