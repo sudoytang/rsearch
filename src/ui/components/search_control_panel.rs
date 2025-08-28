@@ -1,11 +1,13 @@
 use eframe::egui;
+use strum::IntoEnumIterator;
 use crate::search::Endianness;
 use crate::ui::SearchType;
-
+use crate::ui::Encoding;
 pub struct SearchControlPanel {
     search_type: SearchType,
     search_input: String,
     endianness: Endianness,
+    encoding: Encoding,
     is_signed: bool,
 }
 
@@ -15,6 +17,7 @@ impl SearchControlPanel {
             search_type: SearchType::Bit8,
             search_input: String::new(),
             endianness: Endianness::LittleEndian,
+            encoding: Encoding::UTF8,
             is_signed: false,
         }
     }
@@ -35,6 +38,10 @@ impl SearchControlPanel {
         self.is_signed
     }
 
+    pub fn get_encoding(&self) -> Encoding {
+        self.encoding
+    }
+
     pub fn render(&mut self, ui: &mut egui::Ui) -> bool {
         let mut search_requested = false;
 
@@ -44,15 +51,12 @@ impl SearchControlPanel {
             
             ui.horizontal(|ui| {
                 // Search type dropdown
-                egui::ComboBox::from_label("Type")
+                egui::ComboBox::from_id_salt("SearchControlPanel.Type")
                     .selected_text(format!("{:?}", self.search_type))
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.search_type, SearchType::Bit8, "8-bit");
-                        ui.selectable_value(&mut self.search_type, SearchType::Bit16, "16-bit");
-                        ui.selectable_value(&mut self.search_type, SearchType::Bit32, "32-bit");
-                        ui.selectable_value(&mut self.search_type, SearchType::Bit64, "64-bit");
-                        ui.selectable_value(&mut self.search_type, SearchType::Bytes, "Bytes");
-                        ui.selectable_value(&mut self.search_type, SearchType::String, "String");
+                        for search_type in SearchType::iter() {
+                            ui.selectable_value(&mut self.search_type, search_type, format!("{:?}", search_type));
+                        }
                     });
                 
                 // Search input
@@ -67,22 +71,38 @@ impl SearchControlPanel {
             
             ui.horizontal(|ui| {
                 // Endianness radio buttons
-                ui.label("Endianness:");
+                // ui.label("Endianness:");
                 ui.add_enabled_ui(self.search_type.is_endianness_enabled(), |ui| {
-                    ui.radio_value(&mut self.endianness, Endianness::LittleEndian, "Little Endian");
-                    ui.radio_value(&mut self.endianness, Endianness::BigEndian, "Big Endian");
+                    ui.radio_value(&mut self.endianness, Endianness::LittleEndian, "LE");
+                    ui.radio_value(&mut self.endianness, Endianness::BigEndian, "BE");
                 });
                 
                 ui.separator();
                 
                 // Signedness radio buttons
-                ui.label("Signedness:");
+                // ui.label("Signedness:");
                 ui.add_enabled_ui(self.search_type.is_signedness_enabled(), |ui| {
                     ui.radio_value(&mut self.is_signed, false, "Unsigned");
                     ui.radio_value(&mut self.is_signed, true, "Signed");
                 });
+
+                ui.separator();
+                
+                // Encoding Combobox
+                ui.add_enabled_ui(self.search_type.is_encoding_enabled(), |ui| {
+                    ui.label("Encoding");
+                    egui::ComboBox::from_id_salt("SearchControlPanel.Encoding")
+                    .selected_text(format!("{:?}", self.encoding))
+                    .show_ui(ui, |ui| {
+                        for encoding in Encoding::iter() {
+                            ui.selectable_value(&mut self.encoding, encoding, format!("{:?}", encoding));
+                        }
+                    });
+                });
+
             });
         });
+        // println!("{:?}", resp);
 
         search_requested
     }

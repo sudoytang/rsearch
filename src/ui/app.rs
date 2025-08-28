@@ -1,4 +1,5 @@
 use eframe::egui;
+use egui_extras::{Size, StripBuilder};
 use crate::ui;
 use crate::ui::components::{HexViewer, DataInspector, FilePanel, SearchControlPanel, SearchResultsPanel};
 
@@ -65,37 +66,56 @@ impl BinarySearchApp {
 
 impl eframe::App for BinarySearchApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            // File panel
-            if self.file_panel.render(ui) {
-                // File was opened, clear search results
-                self.search_results_panel.clear_results();
-            }
+        // Left-right split layout
+        // Right panel - Hex viewer and data inspector
+        egui::SidePanel::right("DataView")
+        .max_width(1200.)
+        .show(ctx, |ui| {
             
-            ui.separator();
-            
-            // Search controls panel
-            if self.search_control_panel.render(ui) {
-                self.perform_search();
-            }
-            
-            // Search results panel
-            if let Some(offset) = self.search_results_panel.render(ui) {
-                self.hex_viewer.set_selected_offset(Some(offset));
-            }
-            
-            // Bottom section - Hex viewer and data inspector
-            ui.horizontal(|ui| {
-                ui.vertical(|ui| {
+            let sb: StripBuilder<'_> = StripBuilder::new(ui)
+                .size(Size::remainder().at_least(200.))
+                .size(Size::exact(250.));
+            sb.horizontal(|mut strip| {
+                strip.cell(|ui| {
                     self.hex_viewer.render(ui, self.file_panel.get_file_data());
                 });
-                
-                ui.vertical(|ui| {
+                strip.cell(|ui| {
                     self.data_inspector.render(ui, self.hex_viewer.get_selected_offset(), self.file_panel.get_file_data());
-                });
+                })
             });
         });
-        
-        
+
+        egui::CentralPanel::default()
+            // .resizable(true)
+            // .default_width(500.0)
+            // .width_range(450.0..=600.0)
+            .show(ctx, |ui| {
+                // Left panel - File controls, Search controls, Search results
+                ui.heading("Controls");
+                
+                ui.separator();
+                
+                // File panel
+                if self.file_panel.render(ui) {
+                    // File was opened, clear search results
+                    self.search_results_panel.clear_results();
+                }
+                
+                ui.separator();
+                
+                // Search controls panel
+                if self.search_control_panel.render(ui) {
+                    self.perform_search();
+                }
+                
+                ui.separator();
+                
+                // Search results panel
+                // if let Some(offset) = self.search_results_panel.render(ui) {
+                //     self.hex_viewer.set_selected_offset(Some(offset));
+                // }
+            });
+
+
     }
 }

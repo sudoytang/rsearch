@@ -37,7 +37,7 @@ impl FilePanel {
         // WARN(cursor): Mocking file dialog for UI testing
         // In a real implementation, use rfd::FileDialog::new().pick_file()
         self.file_path = Some(PathBuf::from("mock_file.bin"));
-        self.file_data = Some(vec![b'A'; 1000]);
+        self.file_data = Some((0..1024).map(|v| { v as u8 }).collect());
     }
 
     pub fn render(&mut self, ui: &mut egui::Ui) -> bool {

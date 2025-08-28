@@ -24,7 +24,7 @@ impl SearchResultsPanel {
         self.search_results.clear();
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui) -> Option<usize> {
+    pub fn render(&mut self, ui: &mut egui::Ui) {
         let mut selected_offset = None;
 
         // Search results section
@@ -61,7 +61,6 @@ impl SearchResultsPanel {
                 });
         });
 
-        selected_offset
     }
 }
 
