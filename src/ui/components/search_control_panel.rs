@@ -1,3 +1,5 @@
+use core::f32;
+
 use eframe::egui;
 use strum::IntoEnumIterator;
 use crate::search::Endianness;
@@ -49,25 +51,31 @@ impl SearchControlPanel {
         ui.group(|ui| {
             ui.label("Search Controls");
             
-            ui.horizontal(|ui| {
+            let _resp = ui.horizontal(|ui| {
                 // Search type dropdown
                 egui::ComboBox::from_id_salt("SearchControlPanel.Type")
-                    .selected_text(format!("{:?}", self.search_type))
+                    .width(60.)
+                    .selected_text(format!("{}", self.search_type))
                     .show_ui(ui, |ui| {
                         for search_type in SearchType::iter() {
-                            ui.selectable_value(&mut self.search_type, search_type, format!("{:?}", search_type));
+                            ui.selectable_value(&mut self.search_type, search_type, format!("{}", search_type));
                         }
                     });
-                
-                // Search input
                 ui.label("Value:");
-                ui.text_edit_singleline(&mut self.search_input);
                 
-                // Search button
-                if ui.button("Search").clicked() {
-                    search_requested = true;
-                }
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    // Search button
+                    if ui.button("Search").clicked() {
+                        search_requested = true;
+                    }
+                    let _resp = ui.add(
+                        egui::TextEdit::singleline(&mut self.search_input)
+                            .desired_width(f32::INFINITY)
+                    );
+                    println!("Input: {}", _resp.rect.width());
+                });
             });
+            println!("SearchHorizontal: {}", _resp.response.rect.width());
             
             ui.horizontal(|ui| {
                 // Endianness radio buttons
@@ -82,8 +90,15 @@ impl SearchControlPanel {
                 // Signedness radio buttons
                 // ui.label("Signedness:");
                 ui.add_enabled_ui(self.search_type.is_signedness_enabled(), |ui| {
-                    ui.radio_value(&mut self.is_signed, false, "Unsigned");
-                    ui.radio_value(&mut self.is_signed, true, "Signed");
+                    // ui.radio_value(&mut self.is_signed, false, "Unsigned");
+                    // ui.radio_value(&mut self.is_signed, true, "Signed");
+                    egui::ComboBox::from_id_salt("SearchControlPanel.Signedness")
+                    .selected_text(if self.is_signed { "Signed" } else { "Unsigned" })
+                    .width(80.)
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut self.is_signed, true, "Signed");
+                        ui.selectable_value(&mut self.is_signed, false, "Unsigned");
+                    })
                 });
 
                 ui.separator();
@@ -92,17 +107,17 @@ impl SearchControlPanel {
                 ui.add_enabled_ui(self.search_type.is_encoding_enabled(), |ui| {
                     ui.label("Encoding");
                     egui::ComboBox::from_id_salt("SearchControlPanel.Encoding")
-                    .selected_text(format!("{:?}", self.encoding))
+                    .selected_text(format!("{}", self.encoding))
+                    .width(70.)
                     .show_ui(ui, |ui| {
                         for encoding in Encoding::iter() {
-                            ui.selectable_value(&mut self.encoding, encoding, format!("{:?}", encoding));
+                            ui.selectable_value(&mut self.encoding, encoding, format!("{}", encoding));
                         }
                     });
                 });
 
             });
         });
-        // println!("{:?}", resp);
 
         search_requested
     }

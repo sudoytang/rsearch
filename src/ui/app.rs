@@ -64,18 +64,54 @@ impl BinarySearchApp {
 
 }
 
+impl BinarySearchApp {
+    // Layout Spec
+
+    const CELL0_MIN_WIDTH: f32 = 350.;
+    const CELL1_MIN_WIDTH: f32 = 600.;
+    const CELL2_MIN_WIDTH: f32 = 250.;
+    const APP_MIN_WIDTH: f32 = Self::CELL0_MIN_WIDTH + Self::CELL1_MIN_WIDTH + Self::CELL2_MIN_WIDTH;
+    const CELL0_RATIO: f32 = Self::CELL0_MIN_WIDTH / Self::APP_MIN_WIDTH;
+    #[allow(unused)]
+    const CELL1_RATIO: f32 = Self::CELL1_MIN_WIDTH / Self::APP_MIN_WIDTH;
+    const CELL2_RATIO: f32 = Self::CELL2_MIN_WIDTH / Self::APP_MIN_WIDTH;
+
+
+    const APP_MIN_HEIGHT: f32 = 350.;
+}
+
 impl eframe::App for BinarySearchApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(egui::vec2(Self::APP_MIN_WIDTH, Self::APP_MIN_HEIGHT)));
         // Left-right split layout
-        // Right panel - Hex viewer and data inspector
-        egui::SidePanel::right("DataView")
-        .max_width(1200.)
+        egui::CentralPanel::default()
         .show(ctx, |ui| {
-            
+
             let sb: StripBuilder<'_> = StripBuilder::new(ui)
-                .size(Size::remainder().at_least(200.))
-                .size(Size::exact(250.));
+                .size(Size::relative(Self::CELL0_RATIO))  // 第一个cell占剩余空间的40%
+                .size(Size::remainder())  // 第二个cell占剩余空间的60%
+                .size(Size::relative(Self::CELL2_RATIO));   // 第三个cell固定250像素
             sb.horizontal(|mut strip| {
+                strip.cell(|ui| {
+                    // Left panel - File controls, Search controls, Search results
+                    // File panel
+                    if self.file_panel.render(ui) {
+                        // File was opened, clear search results
+                        self.search_results_panel.clear_results();
+                    }
+                    
+                    ui.separator();
+                    
+                    // Search controls panel
+                    if self.search_control_panel.render(ui) {
+                        self.perform_search();
+                    }
+                    
+                    ui.separator();
+                    
+                    // Search results panel
+                    self.search_results_panel.render(ui);
+                });
                 strip.cell(|ui| {
                     self.hex_viewer.render(ui, self.file_panel.get_file_data());
                 });
@@ -84,38 +120,5 @@ impl eframe::App for BinarySearchApp {
                 })
             });
         });
-
-        egui::CentralPanel::default()
-            // .resizable(true)
-            // .default_width(500.0)
-            // .width_range(450.0..=600.0)
-            .show(ctx, |ui| {
-                // Left panel - File controls, Search controls, Search results
-                ui.heading("Controls");
-                
-                ui.separator();
-                
-                // File panel
-                if self.file_panel.render(ui) {
-                    // File was opened, clear search results
-                    self.search_results_panel.clear_results();
-                }
-                
-                ui.separator();
-                
-                // Search controls panel
-                if self.search_control_panel.render(ui) {
-                    self.perform_search();
-                }
-                
-                ui.separator();
-                
-                // Search results panel
-                // if let Some(offset) = self.search_results_panel.render(ui) {
-                //     self.hex_viewer.set_selected_offset(Some(offset));
-                // }
-            });
-
-
     }
 }
