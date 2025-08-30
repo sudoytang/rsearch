@@ -1,10 +1,12 @@
-use eframe::egui;
+use eframe::egui::{self, Response};
 use egui_extras::{Column, TableBuilder};
 
 #[derive(Clone, Debug)]
 pub struct Selection {
-    pub start: usize,
-    pub end: usize,
+    start: usize,
+    end: usize,
+    // Both end inclusive, end may be SMALLER than start.
+    // (this implies that this type cannot express a null set)
 }
 
 impl Selection {
@@ -15,23 +17,49 @@ impl Selection {
         }
     }
     
+    pub fn lower(&self) -> usize {
+        return usize::min(self.start, self.end);
+    }
+
+    pub fn upper(&self) -> usize {
+        return usize::max(self.start, self.end);
+    }
+
     pub fn contains(&self, offset: usize) -> bool {
-        offset >= self.start && offset <= self.end
+        offset >= self.lower() && offset <= self.upper()
     }
     
     pub fn update_end(&mut self, end: usize) {
-        if end < self.start {
-            self.end = self.start;
-            self.start = end;
-        } else {
-            self.end = end;
+        self.end = end;
+    }
+
+    pub fn update_start(&mut self, start: usize) {
+        self.start = start;
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DragStatus {
+    Idle,
+    Bytes(usize),
+    ASCII(usize),
+}
+
+impl DragStatus {
+    fn type_matches(&self, other: Self) -> bool {
+        match (self, other) {
+            (DragStatus::Idle, DragStatus::Idle) => true,
+            (DragStatus::Bytes(_), DragStatus::Bytes(_)) => true,
+            (DragStatus::ASCII(_), DragStatus::ASCII(_)) => true,
+            _ => false,
         }
     }
 }
 
 pub struct HexViewer {
     selection: Option<Selection>,
-    drag_start: Option<usize>,
+    drag_status: DragStatus,
+    drag_counter: usize,
 }
 
 impl HexViewer {
@@ -57,7 +85,8 @@ impl HexViewer {
     pub fn new() -> Self {
         Self { 
             selection: None,
-            drag_start: None,
+            drag_status: DragStatus::Idle,
+            drag_counter: 0,
         }
     }
 
@@ -65,9 +94,8 @@ impl HexViewer {
         self.selection = Some(Selection::new(offset));
     }
 
-    pub fn get_selected_offset(&self) -> usize {
-        self.selection.as_ref().map(|s| s.start).unwrap_or(0)
-        // TODO(yushun): this may be buggy
+    pub fn get_selected_offset(&self) -> Option<usize> {
+        self.selection.as_ref().map(|s: &Selection| s.lower())
     }
     
     pub fn get_selection(&self) -> Option<&Selection> {
@@ -76,7 +104,45 @@ impl HexViewer {
     
     pub fn clear_selection(&mut self) {
         self.selection = None;
-        self.drag_start = None;
+        self.drag_status = DragStatus::Idle;
+    }
+
+    fn handle_drag(&mut self, resp: &Response, status: DragStatus) {
+        // Handle mouse interactions
+        let off = match status {
+            DragStatus::Idle => { return; },
+            DragStatus::ASCII(offset) => offset,
+            DragStatus::Bytes(offset) => offset,
+        };
+        if resp.clicked() {
+            println!("Clicked");
+            self.selection = Some(Selection::new(off));
+            self.drag_status = DragStatus::Idle;
+        }
+        
+        // Handle drag start
+        if resp.drag_started() {
+            println!("Drag Started {:?}", status);
+            self.drag_status = status;
+            self.selection = Some(Selection::new(off));
+            self.drag_counter = 0;
+        }
+        
+        // Handle drag
+        if self.drag_status.type_matches(status) && resp.contains_pointer() {
+            println!("Dragged {:?} to {:?} {}", self.drag_status, status, self.drag_counter);
+            if let Some(ref mut sel) = self.selection {
+                sel.update_end(off);
+            }
+            self.drag_counter += 1;
+        }
+        
+        // Handle drag released - check if we were dragging and now stopped
+        if self.drag_status == status && !resp.dragged() {
+            println!("Drag Released {:?}", status);
+            self.drag_status = DragStatus::Idle;
+            self.drag_counter = 0;
+        }
     }
 
     pub fn render(&mut self, ui: &mut egui::Ui, file_data: Option<&[u8]>) {
@@ -165,30 +231,8 @@ impl HexViewer {
                                                     ui.visuals().strong_text_color(),
                                                 );
                                             }
-                                            
-                                            // Handle mouse interactions
-                                            if resp.clicked() {
-                                                self.selection = Some(Selection::new(off));
-                                                self.drag_start = None;
-                                            }
-                                            
-                                            // Handle drag start
-                                            if resp.drag_started() {
-                                                self.drag_start = Some(off);
-                                                self.selection = Some(Selection::new(off));
-                                            }
-                                            
-                                            // Handle drag
-                                            if resp.dragged() && self.drag_start.is_some() {
-                                                if let Some(ref mut selection) = self.selection {
-                                                    selection.update_end(off);
-                                                }
-                                            }
-                                            
-                                            // Handle drag released - check if we were dragging and now stopped
-                                            if self.drag_start.is_some() && !resp.dragged() && !ui.input(|i| i.pointer.primary_down()) {
-                                                self.drag_start = None;
-                                            }
+                                            self.handle_drag(&resp, DragStatus::Bytes(off));
+
                                         } else {
                                             ui.monospace("  ");
                                         }
@@ -247,28 +291,9 @@ impl HexViewer {
                                                     ui.visuals().strong_text_color(),
                                                 );
                                             }
-                                            
-                                            // Handle mouse interactions (same as byte columns)
-                                            if resp.clicked() {
-                                                self.selection = Some(Selection::new(off));
-                                                self.drag_start = None;
-                                            }
-                                            
-                                            if resp.drag_started() {
-                                                self.drag_start = Some(off);
-                                                self.selection = Some(Selection::new(off));
-                                            }
-                                            
-                                            if resp.dragged() && self.drag_start.is_some() {
-                                                if let Some(ref mut selection) = self.selection {
-                                                    selection.update_end(off);
-                                                }
-                                            }
-                                            
-                                            // Handle drag released - check if we were dragging and now stopped
-                                            if self.drag_start.is_some() && !resp.dragged() && !ui.input(|i| i.pointer.primary_down()) {
-                                                self.drag_start = None;
-                                            }
+
+                                            self.handle_drag(&resp, DragStatus::ASCII(off));
+
                                         }
                                     });
                                 });

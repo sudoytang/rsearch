@@ -85,13 +85,13 @@ impl eframe::App for BinarySearchApp {
         ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(egui::vec2(Self::APP_MIN_WIDTH, Self::APP_MIN_HEIGHT)));
         
         // Debug: Print mouse position when hovering over the window
-        ctx.input(|i| {
-            if let Some(pos) = i.pointer.hover_pos() {
-                println!("Mouse position: x={:.2}, y={:.2}", pos.x, pos.y);
-            } else if let Some(pos) = i.pointer.interact_pos() {
-                println!("Mouse interact position: x={:.2}, y={:.2}", pos.x, pos.y);
-            }
-        });
+        // ctx.input(|i| {
+        //     if let Some(pos) = i.pointer.hover_pos() {
+        //         println!("Mouse position: x={:.2}, y={:.2}", pos.x, pos.y);
+        //     } else if let Some(pos) = i.pointer.interact_pos() {
+        //         println!("Mouse interact position: x={:.2}, y={:.2}", pos.x, pos.y);
+        //     }
+        // });
         // Left-right split layout
         egui::CentralPanel::default()
         .show(ctx, |ui| {
