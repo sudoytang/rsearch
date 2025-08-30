@@ -540,7 +540,7 @@ impl DataInspector {
                 });
 
 
-                // ui.separator();
+                ui.separator(); 
 
                 let interpretations = self.get_data_interpretations(data, selected_offset);
                 let table = TableBuilder::new(ui)

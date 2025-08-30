@@ -151,157 +151,150 @@ impl HexViewer {
             let data = file_data.unwrap_or(&[]);
             let lines = (data.len() + Self::BPL - 1) / Self::BPL;
 
-            
-            egui::ScrollArea::vertical()
-            .show(ui, |ui| {
-                let available_width = ui.available_width();
-                let bytes_width = Self::BPL as f32 * (Self::BYTE_COL_WIDTH + ui.spacing().item_spacing.x);
-                let remain_width = available_width - bytes_width;
-                let address_width = remain_width * Self::ADDRESS_COL_MIN_WIDTH / (Self::ADDRESS_COL_MIN_WIDTH + Self::ASCII_COL_MIN_WIDTH);
-                let table = TableBuilder::new(ui)
-                    .striped(false)
-                    .column(Column::exact(address_width)) // Address
-                    .columns(Column::exact(Self::BYTE_COL_WIDTH), Self::BPL) // 16 columns for bytes
-                    .column(Column::remainder().at_least(Self::ASCII_COL_MIN_WIDTH)); // ASCII
+            let available_width = ui.available_width();
+            let bytes_width = Self::BPL as f32 * (Self::BYTE_COL_WIDTH + ui.spacing().item_spacing.x);
+            let remain_width = available_width - bytes_width;
+            let address_width = remain_width * Self::ADDRESS_COL_MIN_WIDTH / (Self::ADDRESS_COL_MIN_WIDTH + Self::ASCII_COL_MIN_WIDTH);
+            let table = TableBuilder::new(ui)
+                .striped(false)
+                .column(Column::exact(address_width)) // Address
+                .columns(Column::exact(Self::BYTE_COL_WIDTH), Self::BPL) // 16 columns for bytes
+                .column(Column::remainder().at_least(Self::ASCII_COL_MIN_WIDTH)); // ASCII
 
-                table
-                    .header(20.0, |mut header| {
+            table
+                .header(20.0, |mut header| {
+                    header.col(|ui| {
+                        ui.monospace("Address");
+                    });
+                    for i in 0..Self::BPL {
                         header.col(|ui| {
-                            ui.monospace("Address");
+                            ui.monospace(format!("{:02X}", i));
+                        });
+                    }
+                    header.col(|ui| {
+                        ui.monospace("ASCII");
+                    });
+                })
+                .body(|body| {
+                    body.rows(18.0, lines, |mut row| {
+                        let line = row.index();
+                        let start = line * Self::BPL;
+                        let end = (start + Self::BPL).min(data.len());
+                        row.col(|ui| {
+                            ui.monospace(format!("{:08X}", start));
                         });
                         for i in 0..Self::BPL {
-                            header.col(|ui| {
-                                ui.monospace(format!("{:02X}", i));
-                            });
-                        }
-                        header.col(|ui| {
-                            ui.monospace("ASCII");
-                        });
-                    })
-                    .body(|mut body| {
-                        for line in 0..lines {
-                            let start = line * Self::BPL;
-                            let end = (start + Self::BPL).min(data.len());
+                            row.col(|ui: &mut egui::Ui| {
+                                if start + i < data.len() {
+                                    let off = start + i;
+                                    let text = format!("{:02X}", data[off]);
 
-                            body.row(18.0, |mut row| {
-                                row.col(|ui| {
-                                    ui.monospace(format!("{:08X}", start));
-                                });
-                                for i in 0..Self::BPL {
-                                    row.col(|ui: &mut egui::Ui| {
-                                        if start + i < data.len() {
-                                            let off = start + i;
-                                            let text = format!("{:02X}", data[off]);
+                                    // Create a clickable area without text selection
+                                    let (rect, resp) = ui.allocate_exact_size(
+                                        egui::vec2(14.0, 18.0),
+                                        egui::Sense::click_and_drag()
+                                    );
+                                    
+                                    // Draw the text manually
+                                    ui.painter().text(
+                                        rect.center(),
+                                        egui::Align2::CENTER_CENTER,
+                                        text,
+                                        egui::TextStyle::Monospace.resolve(ui.style()),
+                                        ui.visuals().text_color(),
+                                    );
+                                    
+                                    // Check if this byte is in selection range
+                                    let is_selected = self.selection.as_ref()
+                                        .map(|sel| sel.contains(off))
+                                        .unwrap_or(false);
+                                    
+                                    // Selection highlighting
+                                    if is_selected {
+                                        let r = rect.expand2(egui::vec2(1.0, 1.0));
+                                        ui.painter().rect_filled(
+                                            r,
+                                            2.0,
+                                            egui::Color32::from_rgb(100, 150, 255),
+                                        );
+                                        // Redraw text to ensure it's on top
+                                        ui.painter().text(
+                                            r.center(),
+                                            egui::Align2::CENTER_CENTER,
+                                            format!("{:02X}", data[off]),
+                                            egui::TextStyle::Monospace
+                                                .resolve(ui.style()),
+                                            ui.visuals().strong_text_color(),
+                                        );
+                                    }
+                                    self.handle_drag(&resp, DragStatus::Bytes(off));
 
-                                            // Create a clickable area without text selection
-                                            let (rect, resp) = ui.allocate_exact_size(
-                                                egui::vec2(14.0, 18.0),
-                                                egui::Sense::click_and_drag()
-                                            );
-                                            
-                                            // Draw the text manually
-                                            ui.painter().text(
-                                                rect.center(),
-                                                egui::Align2::CENTER_CENTER,
-                                                text,
-                                                egui::TextStyle::Monospace.resolve(ui.style()),
-                                                ui.visuals().text_color(),
-                                            );
-                                            
-                                            // Check if this byte is in selection range
-                                            let is_selected = self.selection.as_ref()
-                                                .map(|sel| sel.contains(off))
-                                                .unwrap_or(false);
-                                            
-                                            // Selection highlighting
-                                            if is_selected {
-                                                let r = rect.expand2(egui::vec2(1.0, 1.0));
-                                                ui.painter().rect_filled(
-                                                    r,
-                                                    2.0,
-                                                    egui::Color32::from_rgb(100, 150, 255),
-                                                );
-                                                // Redraw text to ensure it's on top
-                                                ui.painter().text(
-                                                    r.center(),
-                                                    egui::Align2::CENTER_CENTER,
-                                                    format!("{:02X}", data[off]),
-                                                    egui::TextStyle::Monospace
-                                                        .resolve(ui.style()),
-                                                    ui.visuals().strong_text_color(),
-                                                );
-                                            }
-                                            self.handle_drag(&resp, DragStatus::Bytes(off));
-
-                                        } else {
-                                            ui.monospace("  ");
-                                        }
-                                    });
+                                } else {
+                                    ui.monospace("  ");
                                 }
-                                row.col(|ui| {
-                                    // Render ASCII characters with individual interaction
-                                    ui.horizontal(|ui| {
-                                        ui.spacing_mut().item_spacing.x = 0.0; // No spacing between chars
-                                        
-                                        for i in 0..(end - start) {
-                                            let off = start + i;
-                                            let byte = data[off];
-                                            let ch = if byte.is_ascii_graphic() {
-                                                byte as char
-                                            } else {
-                                                '.'
-                                            };
-                                            
-                                            // Check if this character is selected
-                                            let is_selected = self.selection.as_ref()
-                                                .map(|sel| sel.contains(off))
-                                                .unwrap_or(false);
-                                            
-                                            // Create a clickable area for each character without text selection
-                                            let char_width = ui.fonts(|f| f.glyph_width(&egui::TextStyle::Monospace.resolve(ui.style()), 'W'));
-                                            let (rect, resp) = ui.allocate_exact_size(
-                                                egui::vec2(char_width, 18.0),
-                                                egui::Sense::click_and_drag()
-                                            );
-                                            
-                                            // Draw the character manually
-                                            ui.painter().text(
-                                                rect.center(),
-                                                egui::Align2::CENTER_CENTER,
-                                                ch.to_string(),
-                                                egui::TextStyle::Monospace.resolve(ui.style()),
-                                                ui.visuals().text_color(),
-                                            );
-                                            
-                                            // Highlight selected characters
-                                            if is_selected {
-                                                let r = rect.expand2(egui::vec2(0.0, 1.0));
-                                                ui.painter().rect_filled(
-                                                    r,
-                                                    2.0,
-                                                    egui::Color32::from_rgb(100, 150, 255),
-                                                );
-                                                // Redraw character on top
-                                                ui.painter().text(
-                                                    r.center(),
-                                                    egui::Align2::CENTER_CENTER,
-                                                    ch.to_string(),
-                                                    egui::TextStyle::Monospace
-                                                        .resolve(ui.style()),
-                                                    ui.visuals().strong_text_color(),
-                                                );
-                                            }
-
-                                            self.handle_drag(&resp, DragStatus::ASCII(off));
-
-                                        }
-                                    });
-                                });
                             });
                         }
-                    });
-            });
+                        row.col(|ui| {
+                            // Render ASCII characters with individual interaction
+                            ui.horizontal(|ui| {
+                                ui.spacing_mut().item_spacing.x = 0.0; // No spacing between chars
+                                
+                                for i in 0..(end - start) {
+                                    let off = start + i;
+                                    let byte = data[off];
+                                    let ch = if byte.is_ascii_graphic() {
+                                        byte as char
+                                    } else {
+                                        '.'
+                                    };
+                                    
+                                    // Check if this character is selected
+                                    let is_selected = self.selection.as_ref()
+                                        .map(|sel| sel.contains(off))
+                                        .unwrap_or(false);
+                                    
+                                    // Create a clickable area for each character without text selection
+                                    let char_width = ui.fonts(|f| f.glyph_width(&egui::TextStyle::Monospace.resolve(ui.style()), 'W'));
+                                    let (rect, resp) = ui.allocate_exact_size(
+                                        egui::vec2(char_width, 18.0),
+                                        egui::Sense::click_and_drag()
+                                    );
+                                    
+                                    // Draw the character manually
+                                    ui.painter().text(
+                                        rect.center(),
+                                        egui::Align2::CENTER_CENTER,
+                                        ch.to_string(),
+                                        egui::TextStyle::Monospace.resolve(ui.style()),
+                                        ui.visuals().text_color(),
+                                    );
+                                    
+                                    // Highlight selected characters
+                                    if is_selected {
+                                        let r = rect.expand2(egui::vec2(0.0, 1.0));
+                                        ui.painter().rect_filled(
+                                            r,
+                                            2.0,
+                                            egui::Color32::from_rgb(100, 150, 255),
+                                        );
+                                        // Redraw character on top
+                                        ui.painter().text(
+                                            r.center(),
+                                            egui::Align2::CENTER_CENTER,
+                                            ch.to_string(),
+                                            egui::TextStyle::Monospace
+                                                .resolve(ui.style()),
+                                            ui.visuals().strong_text_color(),
+                                        );
+                                    }
 
+                                    self.handle_drag(&resp, DragStatus::ASCII(off));
+
+                                }
+                            });
+                        });
+                    });
+                });
         });
     }
 }
