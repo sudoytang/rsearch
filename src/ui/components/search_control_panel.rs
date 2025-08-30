@@ -3,8 +3,7 @@ use core::f32;
 use eframe::egui;
 use strum::IntoEnumIterator;
 use crate::search::Endianness;
-use crate::ui::SearchType;
-use crate::ui::Encoding;
+use crate::ui::util::{SearchType, Encoding};
 pub struct SearchControlPanel {
     search_type: SearchType,
     search_input: String,

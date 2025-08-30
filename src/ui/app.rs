@@ -2,45 +2,10 @@ use eframe::egui;
 use egui_extras::{Size, StripBuilder};
 use crate::ui;
 use crate::ui::components::{HexViewer, DataInspector, FilePanel, SearchControlPanel, SearchResultsPanel};
+use crate::ui::util::Selection;
 
 
-#[derive(Clone, Copy, Debug)]
-pub struct Selection {
-    start: usize,
-    end: usize,
-    // Both end inclusive, end may be SMALLER than start.
-    // (this implies that this type cannot express a null set)
-}
 
-
-impl Selection {
-    pub fn new(offset: usize) -> Self {
-        Self {
-            start: offset,
-            end: offset,
-        }
-    }
-    
-    pub fn lower(&self) -> usize {
-        return usize::min(self.start, self.end);
-    }
-
-    pub fn upper(&self) -> usize {
-        return usize::max(self.start, self.end);
-    }
-
-    pub fn contains(&self, offset: usize) -> bool {
-        offset >= self.lower() && offset <= self.upper()
-    }
-    
-    pub fn update_end(&mut self, end: usize) {
-        self.end = end;
-    }
-
-    pub fn update_start(&mut self, start: usize) {
-        self.start = start;
-    }
-}
 
 
 pub struct BinarySearchApp {
