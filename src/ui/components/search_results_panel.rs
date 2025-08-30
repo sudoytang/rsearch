@@ -1,5 +1,5 @@
 use eframe::egui;
-use crate::ui::SearchResult;
+use crate::ui::util::SearchResult;
 
 pub struct SearchResultsPanel {
     search_results: Vec<SearchResult>,

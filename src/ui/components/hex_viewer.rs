@@ -1,7 +1,7 @@
 use eframe::egui::{self, Response};
 use egui_extras::{Column, TableBuilder};
 
-use crate::ui::app::Selection;
+use crate::ui::util::Selection;
 
 
 
