@@ -1,9 +1,12 @@
 use eframe::egui;
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::fs::File;
+use memmap2::Mmap;
 
 pub struct FilePanel {
     file_path: Option<PathBuf>,
-    file_data: Option<Vec<u8>>,
+    file_data: Option<Arc<Mmap>>,
 }
 
 impl FilePanel {
@@ -19,7 +22,13 @@ impl FilePanel {
     }
 
     pub fn get_file_data(&self) -> Option<&[u8]> {
-        self.file_data.as_ref().map(|v| v.as_slice())
+        self.file_data.as_deref().map(|m| {
+            m.as_ref()
+        })
+    }
+    
+    pub fn get_file_data_arc(&self) -> Option<Arc<Mmap>> {
+        self.file_data.clone()
     }
 
     pub fn clear_file(&mut self) {
@@ -27,17 +36,21 @@ impl FilePanel {
         self.file_data = None;
     }
 
-    fn open_file(&mut self) {
-        // TODO: Implement file opening logic
-        // - Show native file dialog
-        // - Read file into memory
-        // - Update file_path and file_data
-        // - Clear previous search results
+    fn open_file(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // Show native file dialog
+        if let Some(path) = rfd::FileDialog::new().pick_file() {
+            // Open the file
+            let file = File::open(&path)?;
+            
+            // Create memory-mapped file
+            let mmap = unsafe { Mmap::map(&file)? };
+            
+            // Update state
+            self.file_path = Some(path);
+            self.file_data = Some(Arc::new(mmap));
+        }
         
-        // WARN(cursor): Mocking file dialog for UI testing
-        // In a real implementation, use rfd::FileDialog::new().pick_file()
-        self.file_path = Some(PathBuf::from("mock_file.bin"));
-        self.file_data = Some((0..1024).map(|v| { v as u8 }).collect());
+        Ok(())
     }
 
     pub fn render(&mut self, ui: &mut egui::Ui) -> bool {
@@ -46,12 +59,21 @@ impl FilePanel {
         // Top section - File controls
         ui.horizontal(|ui| {
             if ui.button("Open File").clicked() {
-                self.open_file();
-                file_opened = true;
+                match self.open_file() {
+                    Ok(()) => {
+                        if self.file_data.is_some() {
+                            file_opened = true;
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to open file: {}", e);
+                        // Optionally show error in UI
+                    }
+                }
             }
             
             if let Some(path) = &self.file_path {
-                ui.label(format!("File: {}", path.display()));
+                ui.label(format!("File: {}", path.file_name().unwrap_or(std::ffi::OsStr::new("??")).to_string_lossy()));
             } else {
                 ui.label("No file loaded");
             }

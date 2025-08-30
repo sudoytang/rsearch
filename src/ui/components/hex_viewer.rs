@@ -1,42 +1,9 @@
 use eframe::egui::{self, Response};
 use egui_extras::{Column, TableBuilder};
 
-#[derive(Clone, Debug)]
-pub struct Selection {
-    start: usize,
-    end: usize,
-    // Both end inclusive, end may be SMALLER than start.
-    // (this implies that this type cannot express a null set)
-}
+use crate::ui::app::Selection;
 
-impl Selection {
-    pub fn new(offset: usize) -> Self {
-        Self {
-            start: offset,
-            end: offset,
-        }
-    }
-    
-    pub fn lower(&self) -> usize {
-        return usize::min(self.start, self.end);
-    }
 
-    pub fn upper(&self) -> usize {
-        return usize::max(self.start, self.end);
-    }
-
-    pub fn contains(&self, offset: usize) -> bool {
-        offset >= self.lower() && offset <= self.upper()
-    }
-    
-    pub fn update_end(&mut self, end: usize) {
-        self.end = end;
-    }
-
-    pub fn update_start(&mut self, start: usize) {
-        self.start = start;
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DragStatus {
@@ -57,7 +24,6 @@ impl DragStatus {
 }
 
 pub struct HexViewer {
-    selection: Option<Selection>,
     drag_status: DragStatus,
     drag_counter: usize,
 }
@@ -84,30 +50,13 @@ impl HexViewer {
 impl HexViewer {
     pub fn new() -> Self {
         Self { 
-            selection: None,
             drag_status: DragStatus::Idle,
             drag_counter: 0,
         }
     }
 
-    pub fn set_selected_offset(&mut self, offset: usize) {
-        self.selection = Some(Selection::new(offset));
-    }
 
-    pub fn get_selected_offset(&self) -> Option<usize> {
-        self.selection.as_ref().map(|s: &Selection| s.lower())
-    }
-    
-    pub fn get_selection(&self) -> Option<&Selection> {
-        self.selection.as_ref()
-    }
-    
-    pub fn clear_selection(&mut self) {
-        self.selection = None;
-        self.drag_status = DragStatus::Idle;
-    }
-
-    fn handle_drag(&mut self, resp: &Response, status: DragStatus) {
+    fn handle_drag(&mut self, selection: &mut Option<Selection>, resp: &Response, status: DragStatus) {
         // Handle mouse interactions
         let off = match status {
             DragStatus::Idle => { return; },
@@ -116,7 +65,7 @@ impl HexViewer {
         };
         if resp.clicked() {
             println!("Clicked");
-            self.selection = Some(Selection::new(off));
+            *selection = Some(Selection::new(off));
             self.drag_status = DragStatus::Idle;
         }
         
@@ -124,14 +73,14 @@ impl HexViewer {
         if resp.drag_started() {
             println!("Drag Started {:?}", status);
             self.drag_status = status;
-            self.selection = Some(Selection::new(off));
+            *selection = Some(Selection::new(off));
             self.drag_counter = 0;
         }
         
         // Handle drag
         if self.drag_status.type_matches(status) && resp.contains_pointer() {
             println!("Dragged {:?} to {:?} {}", self.drag_status, status, self.drag_counter);
-            if let Some(ref mut sel) = self.selection {
+            if let Some(sel) = selection {
                 sel.update_end(off);
             }
             self.drag_counter += 1;
@@ -145,10 +94,11 @@ impl HexViewer {
         }
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui, file_data: Option<&[u8]>) {
+    pub fn render(&mut self, ui: &mut egui::Ui, file_data: Option<&[u8]>, selection: &mut Option<Selection>) {
+        // let mut rendered_lines = std::collections::BTreeSet::new();
         ui.group(|ui| {
-            ui.label("Hex Viewer");
             let data = file_data.unwrap_or(&[]);
+            ui.label(format!("Hex Viewer | Size = {} ({:x}) bytes", data.len(), data.len()));
             let lines = (data.len() + Self::BPL - 1) / Self::BPL;
 
             let available_width = ui.available_width();
@@ -176,8 +126,13 @@ impl HexViewer {
                     });
                 })
                 .body(|body| {
-                    body.rows(18.0, lines, |mut row| {
+                    body.rows(18.0, lines + 20, |mut row| {
                         let line = row.index();
+                        // render extra lines for extra scrollable space
+                        // rendered_lines.insert(line);
+                        if line >= lines {
+                            return;
+                        }
                         let start = line * Self::BPL;
                         let end = (start + Self::BPL).min(data.len());
                         row.col(|ui| {
@@ -205,7 +160,7 @@ impl HexViewer {
                                     );
                                     
                                     // Check if this byte is in selection range
-                                    let is_selected = self.selection.as_ref()
+                                    let is_selected = selection.as_ref()
                                         .map(|sel| sel.contains(off))
                                         .unwrap_or(false);
                                     
@@ -227,7 +182,7 @@ impl HexViewer {
                                             ui.visuals().strong_text_color(),
                                         );
                                     }
-                                    self.handle_drag(&resp, DragStatus::Bytes(off));
+                                    self.handle_drag(selection, &resp, DragStatus::Bytes(off));
 
                                 } else {
                                     ui.monospace("  ");
@@ -249,7 +204,7 @@ impl HexViewer {
                                     };
                                     
                                     // Check if this character is selected
-                                    let is_selected = self.selection.as_ref()
+                                    let is_selected = selection.as_ref()
                                         .map(|sel| sel.contains(off))
                                         .unwrap_or(false);
                                     
@@ -288,7 +243,7 @@ impl HexViewer {
                                         );
                                     }
 
-                                    self.handle_drag(&resp, DragStatus::ASCII(off));
+                                    self.handle_drag(selection, &resp, DragStatus::ASCII(off));
 
                                 }
                             });
@@ -296,5 +251,13 @@ impl HexViewer {
                     });
                 });
         });
+        // print!("Rendered: ");
+        // for (i, &line) in rendered_lines.iter().enumerate() {
+        //     print!("{:08X}, ", line * 16);
+        //     if (i + 1) % 8 == 0 {
+        //         println!("")
+        //     }
+        // }
+        // println!("");
     }
 }

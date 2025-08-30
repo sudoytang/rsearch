@@ -4,8 +4,43 @@ use crate::ui;
 use crate::ui::components::{HexViewer, DataInspector, FilePanel, SearchControlPanel, SearchResultsPanel};
 
 
+#[derive(Clone, Copy, Debug)]
+pub struct Selection {
+    start: usize,
+    end: usize,
+    // Both end inclusive, end may be SMALLER than start.
+    // (this implies that this type cannot express a null set)
+}
 
 
+impl Selection {
+    pub fn new(offset: usize) -> Self {
+        Self {
+            start: offset,
+            end: offset,
+        }
+    }
+    
+    pub fn lower(&self) -> usize {
+        return usize::min(self.start, self.end);
+    }
+
+    pub fn upper(&self) -> usize {
+        return usize::max(self.start, self.end);
+    }
+
+    pub fn contains(&self, offset: usize) -> bool {
+        offset >= self.lower() && offset <= self.upper()
+    }
+    
+    pub fn update_end(&mut self, end: usize) {
+        self.end = end;
+    }
+
+    pub fn update_start(&mut self, start: usize) {
+        self.start = start;
+    }
+}
 
 
 pub struct BinarySearchApp {
@@ -15,11 +50,13 @@ pub struct BinarySearchApp {
     search_results_panel: SearchResultsPanel,
     hex_viewer: HexViewer,
     data_inspector: DataInspector,
+    selection: Option<Selection>,
 }
 
 impl Default for BinarySearchApp {
     fn default() -> Self {
         Self {
+            selection: None,
             file_panel: FilePanel::new(),
             search_control_panel: SearchControlPanel::new(),
             search_results_panel: SearchResultsPanel::new(),
@@ -106,6 +143,7 @@ impl eframe::App for BinarySearchApp {
                     // File panel
                     if self.file_panel.render(ui) {
                         // File was opened, clear search results
+                        self.selection = None;
                         self.search_results_panel.clear_results();
                     }
                     
@@ -122,10 +160,10 @@ impl eframe::App for BinarySearchApp {
                     self.search_results_panel.render(ui);
                 });
                 strip.cell(|ui| {
-                    self.hex_viewer.render(ui, self.file_panel.get_file_data());
+                    self.hex_viewer.render(ui, self.file_panel.get_file_data(), &mut self.selection);
                 });
                 strip.cell(|ui| {
-                    self.data_inspector.render(ui, self.hex_viewer.get_selected_offset(), self.file_panel.get_file_data());
+                    self.data_inspector.render(ui, self.selection.map(|s| s.lower()), self.file_panel.get_file_data());
                 })
             });
         });
