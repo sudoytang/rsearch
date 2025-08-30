@@ -26,6 +26,9 @@ pub struct DataInspector {
 }
 
 impl DataInspector {
+
+    const EOF_MSG: &'static str = "No Data";
+
     pub fn new() -> Self {
         Self {
             little_endian: true,
@@ -148,7 +151,7 @@ impl DataInspector {
             format!("'{}'", c)
         }
         if b.is_empty() {
-            return ("ASCII".into(), "End of File".into());
+            return ("ASCII".into(), Self::EOF_MSG.into());
         }
         let b = b[0];
         match b {
@@ -185,7 +188,7 @@ impl DataInspector {
         (
             "u8".into(),
             if b.is_empty() {
-                "End of File".into()
+                Self::EOF_MSG.into()
             } else {
                 DataInspector::format_number(b[0] as u64, radix)
             },
@@ -195,7 +198,7 @@ impl DataInspector {
         (
             "i8".into(),
             if b.is_empty() {
-                "End of File".into()
+                Self::EOF_MSG.into()
             } else {
                 DataInspector::format_signed_number(b[0] as i8 as i64, radix)
             },
@@ -203,7 +206,7 @@ impl DataInspector {
     }
     fn intepret_u16(b: &[u8], radix: Radix, is_little_endian: bool) -> (String, String) {
         if b.len() < 2 {
-            return ("u16".into(), "End of File".into());
+            return ("u16".into(), Self::EOF_MSG.into());
         }
         let value = if is_little_endian {
             u16::from_le_bytes([b[0], b[1]])
@@ -217,7 +220,7 @@ impl DataInspector {
     }
     fn intepret_i16(b: &[u8], radix: Radix, is_little_endian: bool) -> (String, String) {
         if b.len() < 2 {
-            return ("i16".into(), "End of File".into());
+            return ("i16".into(), Self::EOF_MSG.into());
         }
         let value = if is_little_endian {
             i16::from_le_bytes([b[0], b[1]])
@@ -231,7 +234,7 @@ impl DataInspector {
     }
     fn intepret_u24(b: &[u8], radix: Radix, is_little_endian: bool) -> (String, String) {
         if b.len() < 3 {
-            return ("u24".into(), "End of File".into());
+            return ("u24".into(), Self::EOF_MSG.into());
         }
         let value = if is_little_endian {
             (b[0] as u32) | ((b[1] as u32) << 8) | ((b[2] as u32) << 16)
@@ -245,7 +248,7 @@ impl DataInspector {
     }
     fn intepret_i24(b: &[u8], radix: Radix, is_little_endian: bool) -> (String, String) {
         if b.len() < 3 {
-            return ("i24".into(), "End of File".into());
+            return ("i24".into(), Self::EOF_MSG.into());
         }
         let value = if is_little_endian {
             (b[0] as u32) | ((b[1] as u32) << 8) | ((b[2] as u32) << 16)
@@ -265,7 +268,7 @@ impl DataInspector {
     }
     fn intepret_u32(b: &[u8], radix: Radix, is_little_endian: bool) -> (String, String) {
         if b.len() < 4 {
-            return ("u32".into(), "End of File".into());
+            return ("u32".into(), Self::EOF_MSG.into());
         }
         let value = if is_little_endian {
             u32::from_le_bytes([b[0], b[1], b[2], b[3]])
@@ -279,7 +282,7 @@ impl DataInspector {
     }
     fn intepret_i32(b: &[u8], radix: Radix, is_little_endian: bool) -> (String, String) {
         if b.len() < 4 {
-            return ("i32".into(), "End of File".into());
+            return ("i32".into(), Self::EOF_MSG.into());
         }
         let value = if is_little_endian {
             i32::from_le_bytes([b[0], b[1], b[2], b[3]])
@@ -293,7 +296,7 @@ impl DataInspector {
     }
     fn intepret_u64(b: &[u8], radix: Radix, is_little_endian: bool) -> (String, String) {
         if b.len() < 8 {
-            return ("u64".into(), "End of File".into());
+            return ("u64".into(), Self::EOF_MSG.into());
         }
         let value = if is_little_endian {
             u64::from_le_bytes([b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]])
@@ -304,7 +307,7 @@ impl DataInspector {
     }
     fn intepret_i64(b: &[u8], radix: Radix, is_little_endian: bool) -> (String, String) {
         if b.len() < 8 {
-            return ("i64".into(), "End of File".into());
+            return ("i64".into(), Self::EOF_MSG.into());
         }
         let value = if is_little_endian {
             i64::from_le_bytes([b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]])
@@ -319,7 +322,7 @@ impl DataInspector {
 
     fn interpret_f16(b: &[u8], is_little_endian: bool) -> (String, String) {
         if b.len() < 2 {
-            return ("f16".into(), "End of File".into());
+            return ("f16".into(), Self::EOF_MSG.into());
         }
         let value = if is_little_endian {
             half::f16::from_le_bytes([b[0], b[1]])
@@ -332,7 +335,7 @@ impl DataInspector {
     }
     fn interpret_bf16(b: &[u8], is_little_endian: bool) -> (String, String) {
         if b.len() < 2 {
-            return ("bf16".into(), "End of File".into());
+            return ("bf16".into(), Self::EOF_MSG.into());
         }
         let value = if is_little_endian {
             half::bf16::from_le_bytes([b[0], b[1]])
@@ -344,7 +347,7 @@ impl DataInspector {
     }
     fn interpret_f32(b: &[u8], is_little_endian: bool) -> (String, String) {
         if b.len() < 4 {
-            return ("f32".into(), "End of File".into());
+            return ("f32".into(), Self::EOF_MSG.into());
         }
         let value = if is_little_endian {
             f32::from_le_bytes([b[0], b[1], b[2], b[3]])
@@ -355,7 +358,7 @@ impl DataInspector {
     }
     fn interpret_f64(b: &[u8], is_little_endian: bool) -> (String, String) {
         if b.len() < 8 {
-            return ("f64".into(), "End of File".into());
+            return ("f64".into(), Self::EOF_MSG.into());
         }
         let value = if is_little_endian {
             f64::from_le_bytes([b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]])
@@ -367,7 +370,7 @@ impl DataInspector {
 
     fn interpret_utf8(b: &[u8]) -> (String, String) {
         if b.is_empty() {
-            return ("UTF-8".into(), "End of File".into());
+            return ("UTF-8".into(), Self::EOF_MSG.into());
         }
 
         // Determine how many bytes we need for the first UTF-8 character
@@ -386,7 +389,7 @@ impl DataInspector {
         };
 
         if b.len() < expected_len {
-            return ("UTF-8".into(), "End of File".into());
+            return ("UTF-8".into(), Self::EOF_MSG.into());
         }
 
         match std::str::from_utf8(&b[..expected_len]) {
@@ -403,7 +406,7 @@ impl DataInspector {
 
     fn interpret_utf16(b: &[u8], is_little_endian: bool) -> (String, String) {
         if b.len() < 2 {
-            return ("UTF-16".into(), "End of File".into());
+            return ("UTF-16".into(), Self::EOF_MSG.into());
         }
 
         let first_unit = if is_little_endian {
@@ -416,7 +419,7 @@ impl DataInspector {
         let (units_needed, utf16_data) = if (0xD800..=0xDBFF).contains(&first_unit) {
             // High surrogate, need low surrogate
             if b.len() < 4 {
-                return ("UTF-16".into(), "End of File".into());
+                return ("UTF-16".into(), Self::EOF_MSG.into());
             }
             let second_unit = if is_little_endian {
                 u16::from_le_bytes([b[2], b[3]])
@@ -442,7 +445,7 @@ impl DataInspector {
 
     fn interpret_utf32(b: &[u8], is_little_endian: bool) -> (String, String) {
         if b.len() < 4 {
-            return ("UTF-32".into(), "End of File".into());
+            return ("UTF-32".into(), Self::EOF_MSG.into());
         }
 
         let code_point = if is_little_endian {
@@ -457,9 +460,8 @@ impl DataInspector {
         }
     }
 
-    fn get_data_interpretations(&self, data: &[u8], offset: usize) -> [(String, String); 18] {
-        let data_slice = &data[offset..];
-
+    fn get_data_interpretations(&self, data: &[u8], offset: Option<usize>) -> [(String, String); 18] {
+        let data_slice = offset.map_or_else( || &[] as &[u8], |off| &data[off..]);
         [
             // Integer interpretations
             Self::intepret_u8(data_slice, self.radix),
@@ -488,7 +490,7 @@ impl DataInspector {
     pub fn render(
         &mut self,
         ui: &mut egui::Ui,
-        selected_offset: usize,
+        selected_offset: Option<usize>,
         file_data: Option<&[u8]>,
     ) {
         // println!("Data Inspector Available width: {}", ui.available_width());
@@ -522,50 +524,50 @@ impl DataInspector {
 
                 ui.separator();
 
-                if let Some(data) = file_data {
-                    if selected_offset >= data.len() {
-                        panic!("Impossible!");
-                    }
+                let data = file_data.unwrap_or(&[]);
 
-                    ui.horizontal(|ui| {
-                        ui.label("Offset:");
-                        ui.monospace(format!(
-                            "0x{:08X} ({})",
-                            selected_offset, selected_offset
-                        ));
-                    });
-
-                    // ui.separator();
-
-                    let interpretations = self.get_data_interpretations(data, selected_offset);
-                    let table = TableBuilder::new(ui)
-                        .striped(true)
-                        .column(Column::exact(80.0)) // Type
-                        .column(Column::remainder()); // Value
-                    table
-                        .header(20.0, |mut header| {
-                            header.col(|ui| {
-                                ui.strong("Type");
-                            });
-                            header.col(|ui| {
-                                ui.strong("Value");
-                            });
-                        })
-                        .body(|mut body| {
-                            for (data_type, value) in interpretations {
-                                body.row(18.0, |mut row| {
-                                    row.col(|ui| {
-                                        ui.monospace(&data_type);
-                                    });
-                                    row.col(|ui| {
-                                        ui.monospace(&value);
-                                    });
-                                });
-                            }
-                        });
-                } else {
-                    ui.label("No file loaded");
+                if selected_offset.is_some_and(|v| v >= data.len()) {
+                    panic!("Impossible!");
                 }
+                ui.horizontal(|ui| {
+                    ui.label("Offset:");
+                    ui.label(selected_offset.map_or("N/A".into(), |off| {
+                        format!(
+                            "0x{:08X} ({})",
+                            off, off
+                        )
+                    }));
+                });
+
+
+                // ui.separator();
+
+                let interpretations = self.get_data_interpretations(data, selected_offset);
+                let table = TableBuilder::new(ui)
+                    .striped(true)
+                    .column(Column::exact(80.0)) // Type
+                    .column(Column::remainder()); // Value
+                table
+                    .header(20.0, |mut header| {
+                        header.col(|ui| {
+                            ui.strong("Type");
+                        });
+                        header.col(|ui| {
+                            ui.strong("Value");
+                        });
+                    })
+                    .body(|mut body| {
+                        for (data_type, value) in interpretations {
+                            body.row(18.0, |mut row| {
+                                row.col(|ui| {
+                                    ui.label(&data_type);
+                                });
+                                row.col(|ui| {
+                                    ui.label(&value);
+                                });
+                            });
+                        }
+                    });
             });
         });
         // println!("Data Inspector used width: {}", _resp.response.rect.width());
