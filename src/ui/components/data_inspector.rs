@@ -489,9 +489,14 @@ impl DataInspector {
         &mut self,
         ui: &mut egui::Ui,
         selected_offset: usize,
-        file_data: &Option<Vec<u8>>,
+        file_data: Option<&[u8]>,
     ) {
-        ui.group(|ui| {
+        // println!("Data Inspector Available width: {}", ui.available_width());
+        
+        let _resp = egui::Frame::group(ui.style())
+        // .corner_radius(20.)
+        // .outer_margin(1.)
+        .show(ui, |ui| {
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
                     ui.label("Data Inspector");
@@ -517,54 +522,52 @@ impl DataInspector {
 
                 ui.separator();
 
-                {
-                    if let Some(data) = file_data {
-                        if selected_offset >= data.len() {
-                            panic!("Impossible!");
-                        }
-
-                        ui.horizontal(|ui| {
-                            ui.label("Offset:");
-                            ui.monospace(format!(
-                                "0x{:08X} ({})",
-                                selected_offset, selected_offset
-                            ));
-                        });
-
-                        ui.separator();
-
-                        let interpretations = self.get_data_interpretations(data, selected_offset);
-                        let table = TableBuilder::new(ui)
-                            .striped(true)
-                            .column(Column::exact(80.0)) // Type
-                            .column(Column::remainder()); // Value
-
-                        table
-                            .header(20.0, |mut header| {
-                                header.col(|ui| {
-                                    ui.strong("Type");
-                                });
-                                header.col(|ui| {
-                                    ui.strong("Value");
-                                });
-                            })
-                            .body(|mut body| {
-                                for (data_type, value) in interpretations {
-                                    body.row(18.0, |mut row| {
-                                        row.col(|ui| {
-                                            ui.monospace(&data_type);
-                                        });
-                                        row.col(|ui| {
-                                            ui.monospace(&value);
-                                        });
-                                    });
-                                }
-                            });
-                    } else {
-                        ui.label("No file loaded");
+                if let Some(data) = file_data {
+                    if selected_offset >= data.len() {
+                        panic!("Impossible!");
                     }
+
+                    ui.horizontal(|ui| {
+                        ui.label("Offset:");
+                        ui.monospace(format!(
+                            "0x{:08X} ({})",
+                            selected_offset, selected_offset
+                        ));
+                    });
+
+                    // ui.separator();
+
+                    let interpretations = self.get_data_interpretations(data, selected_offset);
+                    let table = TableBuilder::new(ui)
+                        .striped(true)
+                        .column(Column::exact(80.0)) // Type
+                        .column(Column::remainder()); // Value
+                    table
+                        .header(20.0, |mut header| {
+                            header.col(|ui| {
+                                ui.strong("Type");
+                            });
+                            header.col(|ui| {
+                                ui.strong("Value");
+                            });
+                        })
+                        .body(|mut body| {
+                            for (data_type, value) in interpretations {
+                                body.row(18.0, |mut row| {
+                                    row.col(|ui| {
+                                        ui.monospace(&data_type);
+                                    });
+                                    row.col(|ui| {
+                                        ui.monospace(&value);
+                                    });
+                                });
+                            }
+                        });
+                } else {
+                    ui.label("No file loaded");
                 }
             });
         });
+        // println!("Data Inspector used width: {}", _resp.response.rect.width());
     }
 }

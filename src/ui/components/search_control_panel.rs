@@ -72,10 +72,10 @@ impl SearchControlPanel {
                         egui::TextEdit::singleline(&mut self.search_input)
                             .desired_width(f32::INFINITY)
                     );
-                    println!("Input: {}", _resp.rect.width());
+                    // println!("Input: {}", _resp.rect.width());
                 });
             });
-            println!("SearchHorizontal: {}", _resp.response.rect.width());
+            // println!("SearchHorizontal: {}", _resp.response.rect.width());
             
             ui.horizontal(|ui| {
                 // Endianness radio buttons

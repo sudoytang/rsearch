@@ -18,8 +18,8 @@ impl FilePanel {
         &self.file_path
     }
 
-    pub fn get_file_data(&self) -> &Option<Vec<u8>> {
-        &self.file_data
+    pub fn get_file_data(&self) -> Option<&[u8]> {
+        self.file_data.as_ref().map(|v| v.as_slice())
     }
 
     pub fn clear_file(&mut self) {
