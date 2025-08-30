@@ -1,5 +1,3 @@
-// pub mod hex_viewer;
-// pub mod data_inspector;
 pub mod hex_viewer;
 pub mod file_panel;
 pub mod search_control_panel;
