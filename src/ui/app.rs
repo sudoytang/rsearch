@@ -67,13 +67,13 @@ impl BinarySearchApp {
 impl BinarySearchApp {
     // Layout Spec
 
-    const CELL0_MIN_WIDTH: f32 = 350.;
-    const CELL1_MIN_WIDTH: f32 = 600.;
-    const CELL2_MIN_WIDTH: f32 = 250.;
-    const APP_MIN_WIDTH: f32 = Self::CELL0_MIN_WIDTH + Self::CELL1_MIN_WIDTH + Self::CELL2_MIN_WIDTH;
+    const CELL0_MIN_WIDTH: f32 = 360.;
+    const CELL1_MIN_WIDTH: f32 = HexViewer::WIDGET_MIN_WIDTH;
+    const CELL2_MIN_WIDTH: f32 = 260.;
+    pub const APP_MIN_WIDTH: f32 = Self::CELL0_MIN_WIDTH + Self::CELL1_MIN_WIDTH + Self::CELL2_MIN_WIDTH;
     const CELL0_RATIO: f32 = Self::CELL0_MIN_WIDTH / Self::APP_MIN_WIDTH;
-    #[allow(unused)]
     const CELL1_RATIO: f32 = Self::CELL1_MIN_WIDTH / Self::APP_MIN_WIDTH;
+    #[allow(unused)]
     const CELL2_RATIO: f32 = Self::CELL2_MIN_WIDTH / Self::APP_MIN_WIDTH;
 
 
@@ -83,14 +83,23 @@ impl BinarySearchApp {
 impl eframe::App for BinarySearchApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(egui::vec2(Self::APP_MIN_WIDTH, Self::APP_MIN_HEIGHT)));
+        
+        // Debug: Print mouse position when hovering over the window
+        ctx.input(|i| {
+            if let Some(pos) = i.pointer.hover_pos() {
+                println!("Mouse position: x={:.2}, y={:.2}", pos.x, pos.y);
+            } else if let Some(pos) = i.pointer.interact_pos() {
+                println!("Mouse interact position: x={:.2}, y={:.2}", pos.x, pos.y);
+            }
+        });
         // Left-right split layout
         egui::CentralPanel::default()
         .show(ctx, |ui| {
 
             let sb: StripBuilder<'_> = StripBuilder::new(ui)
-                .size(Size::relative(Self::CELL0_RATIO))  // 第一个cell占剩余空间的40%
-                .size(Size::remainder())  // 第二个cell占剩余空间的60%
-                .size(Size::relative(Self::CELL2_RATIO));   // 第三个cell固定250像素
+                .size(Size::relative(Self::CELL0_RATIO))
+                .size(Size::relative(Self::CELL1_RATIO))
+                .size(Size::remainder());
             sb.horizontal(|mut strip| {
                 strip.cell(|ui| {
                     // Left panel - File controls, Search controls, Search results
