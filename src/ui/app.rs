@@ -2,7 +2,8 @@ use eframe::egui;
 use egui_extras::{Size, StripBuilder};
 use crate::ui;
 use crate::ui::components::{HexViewer, DataInspector, FilePanel, SearchControlPanel, SearchResultsPanel};
-use crate::ui::util::Selection;
+use crate::ui::util::{Selection, SearchType, Encoding};
+use crate::search::{AsyncSearch, Needle, NeedleOwned, SearchState};
 
 
 
@@ -16,6 +17,8 @@ pub struct BinarySearchApp {
     hex_viewer: HexViewer,
     data_inspector: DataInspector,
     selection: Option<Selection>,
+    // Search state
+    current_search: Option<AsyncSearch>,
 }
 
 impl Default for BinarySearchApp {
@@ -27,6 +30,7 @@ impl Default for BinarySearchApp {
             search_results_panel: SearchResultsPanel::new(),
             hex_viewer: HexViewer::new(),
             data_inspector: DataInspector::new(),
+            current_search: None,
         }
     }
 }
@@ -39,23 +43,151 @@ impl BinarySearchApp {
 
 
     fn perform_search(&mut self) {
-        // TODO: Implement search logic
-        // - Parse search_input based on search_type
-        // - Create Needle from parsed data
-        // - Use AsyncSearch to find matches
-        // - Update search_results with found offsets
+        // Clear previous results
         self.search_results_panel.clear_results();
         
-        // Mock search results for UI testing
-        if !self.search_control_panel.get_search_input().is_empty() {
-            let mut results = Vec::new();
-            for i in 0..10 {
-                results.push(ui::SearchResult {
-                    index: i,
-                    offset: i * 16,
-                });
+        // Cancel any ongoing search
+        if let Some(search) = self.current_search.take() {
+            let _ = search.cancel();
+        }
+        
+        // Get file data
+        let file_data = match self.file_panel.get_file_data_arc() {
+            Some(data) => data,
+            None => {
+                eprintln!("No file loaded for search");
+                return;
             }
-            self.search_results_panel.set_search_results(results);
+        };
+        
+        // Get search input
+        let search_input = self.search_control_panel.get_search_input();
+        if search_input.is_empty() {
+            return;
+        }
+        
+        // Parse search input and create needle
+        let needle = match self.parse_search_input() {
+            Ok(needle) => needle,
+            Err(e) => {
+                eprintln!("Failed to parse search input: {}", e);
+                return;
+            }
+        };
+        
+        // Create and start async search
+        let search = AsyncSearch::create_from_owned(file_data, needle);
+        self.current_search = Some(search);
+    }
+    
+    fn parse_search_input(&self) -> Result<NeedleOwned, String> {
+        let input = self.search_control_panel.get_search_input();
+        let search_type = self.search_control_panel.get_search_type();
+        let endianness = self.search_control_panel.get_endianness();
+        let is_signed = self.search_control_panel.get_is_signed();
+        let encoding = self.search_control_panel.get_encoding();
+        
+        let needle = match search_type {
+            SearchType::Bit8 => {
+                if is_signed {
+                    let value: i8 = input.parse().map_err(|_| "Invalid signed 8-bit integer")?;
+                    Needle::I8(value)
+                } else {
+                    let value: u8 = input.parse().map_err(|_| "Invalid unsigned 8-bit integer")?;
+                    Needle::U8(value)
+                }
+            }
+            SearchType::Bit16 => {
+                if is_signed {
+                    let value: i16 = input.parse().map_err(|_| "Invalid signed 16-bit integer")?;
+                    Needle::I16(endianness, value)
+                } else {
+                    let value: u16 = input.parse().map_err(|_| "Invalid unsigned 16-bit integer")?;
+                    Needle::U16(endianness, value)
+                }
+            }
+            SearchType::Bit32 => {
+                if is_signed {
+                    let value: i32 = input.parse().map_err(|_| "Invalid signed 32-bit integer")?;
+                    Needle::I32(endianness, value)
+                } else {
+                    let value: u32 = input.parse().map_err(|_| "Invalid unsigned 32-bit integer")?;
+                    Needle::U32(endianness, value)
+                }
+            }
+            SearchType::Bit64 => {
+                if is_signed {
+                    let value: i64 = input.parse().map_err(|_| "Invalid signed 64-bit integer")?;
+                    Needle::I64(endianness, value)
+                } else {
+                    let value: u64 = input.parse().map_err(|_| "Invalid unsigned 64-bit integer")?;
+                    Needle::U64(endianness, value)
+                }
+            }
+            SearchType::String => {
+                match encoding {
+                    Encoding::UTF8 => Needle::Str(input)
+                }
+            }
+            SearchType::Bytes => {
+                // Parse hex string like "41 42 43" or "414243"
+                let cleaned = input.replace(" ", "").replace("0x", "");
+                if cleaned.len() % 2 != 0 {
+                    return Err("Hex string must have even number of characters".to_string());
+                }
+                
+                let mut bytes = Vec::new();
+                for i in (0..cleaned.len()).step_by(2) {
+                    let hex_byte = &cleaned[i..i+2];
+                    let byte = u8::from_str_radix(hex_byte, 16)
+                        .map_err(|_| "Invalid hex byte")?;
+                    bytes.push(byte);
+                }
+                
+                return Ok(NeedleOwned::from_data(bytes));
+            }
+        };
+        
+        Ok(needle.into())
+    }
+    
+    fn update_search_results(&mut self) {
+        if let Some(search) = &self.current_search {
+            let mut results = Vec::new();
+            let mut result_count = 0;
+            
+            // Collect up to a reasonable number of results per frame to avoid blocking UI
+            const MAX_RESULTS_PER_FRAME: usize = 100000;
+            
+            loop {
+                match search.try_get() {
+                    Ok(offset) => {
+                        results.push(ui::SearchResult {
+                            index: result_count,
+                            offset,
+                        });
+                        result_count += 1;
+                        
+                        if result_count >= MAX_RESULTS_PER_FRAME {
+                            break;
+                        }
+                    }
+                    Err(SearchState::Pending) => {
+                        // No more results available right now
+                        break;
+                    }
+                    Err(SearchState::Finished) => {
+                        // Search is complete, remove it
+                        self.current_search = None;
+                        break;
+                    }
+                }
+            }
+            
+            // Add new results to the panel
+            if !results.is_empty() {
+                self.search_results_panel.add_search_results(results);
+            }
         }
     }
 
@@ -95,6 +227,9 @@ impl eframe::App for BinarySearchApp {
         //     }
         // });
         // Left-right split layout
+
+        // Check for new search results
+        self.update_search_results();
         egui::CentralPanel::default()
         .show(ctx, |ui| {
 
@@ -107,9 +242,12 @@ impl eframe::App for BinarySearchApp {
                     // Left panel - File controls, Search controls, Search results
                     // File panel
                     if self.file_panel.render(ui) {
-                        // File was opened, clear search results
+                        // File was opened, clear search results and cancel ongoing search
                         self.selection = None;
                         self.search_results_panel.clear_results();
+                        if let Some(search) = self.current_search.take() {
+                            let _ = search.cancel();
+                        }
                     }
                     
                     ui.separator();
