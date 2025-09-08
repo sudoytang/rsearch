@@ -3,8 +3,6 @@ use egui_extras::{Column, TableBuilder};
 
 use crate::ui::util::Selection;
 
-
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DragStatus {
     Idle,
@@ -33,10 +31,10 @@ impl HexViewer {
     const BYTE_COL_WIDTH: f32 = 14.;
     const ADDRESS_COL_MIN_WIDTH: f32 = 70.;
     const DEFAULT_SPACING: f32 = 8.;
-    const BYTE_COLS_MIN_WIDTH: f32 = (Self::BYTE_COL_WIDTH + Self::DEFAULT_SPACING) * Self::BPL as f32;
+    const BYTE_COLS_MIN_WIDTH: f32 =
+        (Self::BYTE_COL_WIDTH + Self::DEFAULT_SPACING) * Self::BPL as f32;
     const ASCII_COL_MIN_WIDTH: f32 = 120.;
-    pub const WIDGET_MIN_WIDTH: f32 = 
-        Self::DEFAULT_SPACING           // Margin
+    pub const WIDGET_MIN_WIDTH: f32 = Self::DEFAULT_SPACING           // Margin
       + Self::DEFAULT_SPACING           // Padding
       + Self::ADDRESS_COL_MIN_WIDTH
       + Self::DEFAULT_SPACING
@@ -49,17 +47,23 @@ impl HexViewer {
 
 impl HexViewer {
     pub fn new() -> Self {
-        Self { 
+        Self {
             drag_status: DragStatus::Idle,
             drag_counter: 0,
         }
     }
 
-
-    fn handle_drag(&mut self, selection: &mut Option<Selection>, resp: &Response, status: DragStatus) {
+    fn handle_drag(
+        &mut self,
+        selection: &mut Option<Selection>,
+        resp: &Response,
+        status: DragStatus,
+    ) {
         // Handle mouse interactions
         let off = match status {
-            DragStatus::Idle => { return; },
+            DragStatus::Idle => {
+                return;
+            }
             DragStatus::ASCII(offset) => offset,
             DragStatus::Bytes(offset) => offset,
         };
@@ -68,7 +72,7 @@ impl HexViewer {
             *selection = Some(Selection::new(off));
             self.drag_status = DragStatus::Idle;
         }
-        
+
         // Handle drag start
         if resp.drag_started() {
             println!("Drag Started {:?}", status);
@@ -76,16 +80,19 @@ impl HexViewer {
             *selection = Some(Selection::new(off));
             self.drag_counter = 0;
         }
-        
+
         // Handle drag
         if self.drag_status.type_matches(status) && resp.contains_pointer() {
-            println!("Dragged {:?} to {:?} {}", self.drag_status, status, self.drag_counter);
+            println!(
+                "Dragged {:?} to {:?} {}",
+                self.drag_status, status, self.drag_counter
+            );
             if let Some(sel) = selection {
                 sel.update_end(off);
             }
             self.drag_counter += 1;
         }
-        
+
         // Handle drag released - check if we were dragging and now stopped
         if self.drag_status == status && !resp.dragged() {
             println!("Drag Released {:?}", status);
@@ -94,23 +101,40 @@ impl HexViewer {
         }
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui, file_data: Option<&[u8]>, selection: &mut Option<Selection>) {
+    pub fn render(
+        &mut self,
+        ui: &mut egui::Ui,
+        file_data: Option<&[u8]>,
+        selection: &mut Option<Selection>,
+        selection_changed: bool,
+    ) {
         // let mut rendered_lines = std::collections::BTreeSet::new();
         ui.group(|ui| {
             let data = file_data.unwrap_or(&[]);
-            ui.label(format!("Hex Viewer | Size = {} ({:x}) bytes", data.len(), data.len()));
+            ui.label(format!(
+                "Hex Viewer | Size = {} ({:x}) bytes",
+                data.len(),
+                data.len()
+            ));
             let lines = (data.len() + Self::BPL - 1) / Self::BPL;
 
             let available_width = ui.available_width();
-            let bytes_width = Self::BPL as f32 * (Self::BYTE_COL_WIDTH + ui.spacing().item_spacing.x);
+            let bytes_width =
+                Self::BPL as f32 * (Self::BYTE_COL_WIDTH + ui.spacing().item_spacing.x);
             let remain_width = available_width - bytes_width;
-            let address_width = remain_width * Self::ADDRESS_COL_MIN_WIDTH / (Self::ADDRESS_COL_MIN_WIDTH + Self::ASCII_COL_MIN_WIDTH);
-            let table = TableBuilder::new(ui)
+            let address_width = remain_width * Self::ADDRESS_COL_MIN_WIDTH
+                / (Self::ADDRESS_COL_MIN_WIDTH + Self::ASCII_COL_MIN_WIDTH);
+            let mut table = TableBuilder::new(ui)
                 .striped(false)
                 .column(Column::exact(address_width)) // Address
                 .columns(Column::exact(Self::BYTE_COL_WIDTH), Self::BPL) // 16 columns for bytes
                 .column(Column::remainder().at_least(Self::ASCII_COL_MIN_WIDTH)); // ASCII
-
+            if selection_changed {
+                if let Some(sel) = selection {
+                    let row = sel.lower() / Self::BPL;
+                    table = table.scroll_to_row(row, None);
+                }
+            }
             table
                 .header(20.0, |mut header| {
                     header.col(|ui| {
@@ -147,9 +171,9 @@ impl HexViewer {
                                     // Create a clickable area without text selection
                                     let (rect, resp) = ui.allocate_exact_size(
                                         egui::vec2(14.0, 18.0),
-                                        egui::Sense::click_and_drag()
+                                        egui::Sense::click_and_drag(),
                                     );
-                                    
+
                                     // Draw the text manually
                                     ui.painter().text(
                                         rect.center(),
@@ -158,12 +182,13 @@ impl HexViewer {
                                         egui::TextStyle::Monospace.resolve(ui.style()),
                                         ui.visuals().text_color(),
                                     );
-                                    
+
                                     // Check if this byte is in selection range
-                                    let is_selected = selection.as_ref()
+                                    let is_selected = selection
+                                        .as_ref()
                                         .map(|sel| sel.contains(off))
                                         .unwrap_or(false);
-                                    
+
                                     // Selection highlighting
                                     if is_selected {
                                         let r = rect.expand2(egui::vec2(1.0, 1.0));
@@ -177,13 +202,11 @@ impl HexViewer {
                                             r.center(),
                                             egui::Align2::CENTER_CENTER,
                                             format!("{:02X}", data[off]),
-                                            egui::TextStyle::Monospace
-                                                .resolve(ui.style()),
+                                            egui::TextStyle::Monospace.resolve(ui.style()),
                                             ui.visuals().strong_text_color(),
                                         );
                                     }
                                     self.handle_drag(selection, &resp, DragStatus::Bytes(off));
-
                                 } else {
                                     ui.monospace("  ");
                                 }
@@ -193,7 +216,7 @@ impl HexViewer {
                             // Render ASCII characters with individual interaction
                             ui.horizontal(|ui| {
                                 ui.spacing_mut().item_spacing.x = 0.0; // No spacing between chars
-                                
+
                                 for i in 0..(end - start) {
                                     let off = start + i;
                                     let byte = data[off];
@@ -202,19 +225,25 @@ impl HexViewer {
                                     } else {
                                         '.'
                                     };
-                                    
+
                                     // Check if this character is selected
-                                    let is_selected = selection.as_ref()
+                                    let is_selected = selection
+                                        .as_ref()
                                         .map(|sel| sel.contains(off))
                                         .unwrap_or(false);
-                                    
+
                                     // Create a clickable area for each character without text selection
-                                    let char_width = ui.fonts(|f| f.glyph_width(&egui::TextStyle::Monospace.resolve(ui.style()), 'W'));
+                                    let char_width = ui.fonts(|f| {
+                                        f.glyph_width(
+                                            &egui::TextStyle::Monospace.resolve(ui.style()),
+                                            'W',
+                                        )
+                                    });
                                     let (rect, resp) = ui.allocate_exact_size(
                                         egui::vec2(char_width, 18.0),
-                                        egui::Sense::click_and_drag()
+                                        egui::Sense::click_and_drag(),
                                     );
-                                    
+
                                     // Draw the character manually
                                     ui.painter().text(
                                         rect.center(),
@@ -223,7 +252,7 @@ impl HexViewer {
                                         egui::TextStyle::Monospace.resolve(ui.style()),
                                         ui.visuals().text_color(),
                                     );
-                                    
+
                                     // Highlight selected characters
                                     if is_selected {
                                         let r = rect.expand2(egui::vec2(0.0, 1.0));
@@ -237,14 +266,12 @@ impl HexViewer {
                                             r.center(),
                                             egui::Align2::CENTER_CENTER,
                                             ch.to_string(),
-                                            egui::TextStyle::Monospace
-                                                .resolve(ui.style()),
+                                            egui::TextStyle::Monospace.resolve(ui.style()),
                                             ui.visuals().strong_text_color(),
                                         );
                                     }
 
                                     self.handle_drag(selection, &resp, DragStatus::ASCII(off));
-
                                 }
                             });
                         });

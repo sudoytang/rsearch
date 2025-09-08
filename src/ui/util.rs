@@ -26,11 +26,17 @@ impl std::fmt::Display for SearchType {
 
 impl SearchType {
     pub fn is_endianness_enabled(&self) -> bool {
-        matches!(self, SearchType::Bit16 | SearchType::Bit32 | SearchType::Bit64)
+        matches!(
+            self,
+            SearchType::Bit16 | SearchType::Bit32 | SearchType::Bit64
+        )
     }
 
     pub fn is_signedness_enabled(&self) -> bool {
-        matches!(self, SearchType::Bit8 | SearchType::Bit16 | SearchType::Bit32 | SearchType::Bit64)
+        matches!(
+            self,
+            SearchType::Bit8 | SearchType::Bit16 | SearchType::Bit32 | SearchType::Bit64
+        )
     }
 
     pub fn is_encoding_enabled(&self) -> bool {
@@ -50,8 +56,7 @@ impl std::fmt::Display for Encoding {
     }
 }
 
-
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Selection {
     start: usize,
     end: usize,
@@ -66,7 +71,11 @@ impl Selection {
             end: offset,
         }
     }
-    
+
+    pub fn range(start: usize, end: usize) -> Self {
+        Self { start, end }
+    }
+
     pub fn lower(&self) -> usize {
         return usize::min(self.start, self.end);
     }
@@ -78,7 +87,7 @@ impl Selection {
     pub fn contains(&self, offset: usize) -> bool {
         offset >= self.lower() && offset <= self.upper()
     }
-    
+
     pub fn update_end(&mut self, end: usize) {
         self.end = end;
     }
