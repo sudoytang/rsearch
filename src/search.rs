@@ -1,19 +1,15 @@
 use std::{
-    sync::{mpsc, Arc}, thread::{
-        self, 
-        JoinHandle
-    }
+    sync::{Arc, mpsc},
+    thread::{self, JoinHandle},
 };
 
+use color_eyre::{Result as EyreReult, eyre::eyre};
 use memchr::memmem;
-use color_eyre::{eyre::eyre, Result as EyreReult};
 use memmap2::Mmap;
-
 
 pub trait Haystack: Send + 'static {
     fn as_bytes(&self) -> &[u8];
 }
-
 
 impl Haystack for Vec<u8> {
     fn as_bytes(&self) -> &[u8] {
@@ -57,7 +53,6 @@ impl Haystack for Box<[u8]> {
     }
 }
 
-
 impl<const N: usize> Haystack for Arc<[u8; N]> {
     fn as_bytes(&self) -> &[u8] {
         self.as_slice()
@@ -88,17 +83,6 @@ impl Haystack for Arc<Mmap> {
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Endianness {
     BigEndian,
@@ -115,7 +99,7 @@ pub enum Needle<'n> {
     I32(Endianness, i32),
     U64(Endianness, u64),
     I64(Endianness, i64),
-    Bytes(&'n[u8]),
+    Bytes(&'n [u8]),
     Str(&'n str),
 }
 
@@ -132,14 +116,18 @@ impl<'n> From<&'n [u8]> for Needle<'n> {
 }
 
 pub struct NeedleOwned {
-    needle: Box<[u8]>
+    needle: Box<[u8]>,
 }
 
 impl NeedleOwned {
     pub fn from_data<T: Into<Box<[u8]>>>(data: T) -> Self {
         Self {
-            needle: data.into()
+            needle: data.into(),
         }
+    }
+
+    pub fn byte_length(&self) -> usize {
+        self.needle.len()
     }
 }
 
@@ -170,7 +158,6 @@ impl<'n> From<Needle<'n>> for NeedleOwned {
     }
 }
 
-
 pub struct AsyncSearch {
     join_handle: JoinHandle<()>,
     receiver: mpsc::Receiver<usize>,
@@ -182,8 +169,7 @@ pub enum SearchState {
 }
 
 impl AsyncSearch {
-
-    pub fn create_from_owned<H>(haystack: H, needle: NeedleOwned) -> Self 
+    pub fn create_from_owned<H>(haystack: H, needle: NeedleOwned) -> Self
     where
         H: Haystack,
     {
@@ -202,8 +188,8 @@ impl AsyncSearch {
             receiver: rx,
         }
     }
-    
-    pub fn create<'s, H, S>(haystack: H, s: S) -> Self 
+
+    pub fn create<'s, H, S>(haystack: H, s: S) -> Self
     where
         H: Haystack,
         S: Into<Needle<'s>>,
@@ -213,12 +199,12 @@ impl AsyncSearch {
     }
 
     pub fn try_get(&self) -> Result<usize, SearchState> {
-        self.receiver.try_recv().map_err(|try_recv_err| {
-            match try_recv_err {
+        self.receiver
+            .try_recv()
+            .map_err(|try_recv_err| match try_recv_err {
                 mpsc::TryRecvError::Empty => SearchState::Pending,
                 mpsc::TryRecvError::Disconnected => SearchState::Finished,
-            }
-        })
+            })
     }
 
     pub fn drain<F>(&self, mut callback: F) -> SearchState
@@ -228,16 +214,16 @@ impl AsyncSearch {
         loop {
             match self.try_get() {
                 Ok(v) => callback(v),
-                Err(e) => return e
+                Err(e) => return e,
             }
         }
     }
 
     pub fn cancel(self) -> EyreReult<()> {
         drop(self.receiver);
-        self.join_handle.join().map_err(|_| {
-            eyre!("Sub-thread panicked")
-        })
+        self.join_handle
+            .join()
+            .map_err(|_| eyre!("Sub-thread panicked"))
     }
 }
 
@@ -274,12 +260,12 @@ mod tests {
     fn test_async_search_with_needle_owned() {
         let haystack = b"hello world hello universe";
         let needle = Needle::Str("hello");
-        
+
         let search = AsyncSearch::create(haystack.as_slice(), needle);
-        
+
         // Give it a moment to find results
         std::thread::sleep(std::time::Duration::from_millis(10));
-        
+
         let mut results = Vec::new();
         loop {
             match search.try_get() {
@@ -288,7 +274,7 @@ mod tests {
                 Err(SearchState::Finished) => break,
             }
         }
-        
+
         // Should find "hello" at positions 0 and 12
         assert_eq!(results.len(), 2);
         assert!(results.contains(&0));
