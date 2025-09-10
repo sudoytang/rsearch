@@ -3,7 +3,8 @@ use crate::ui;
 use crate::ui::components::{
     DataInspector, FilePanel, HexViewer, SearchControlPanel, SearchResultsPanel,
 };
-use crate::ui::util::{Encoding, SearchType, Selection};
+use crate::ui::util::{Encoding, SearchType, Selection, InputParseError};
+use crate::ui::int_parse::IntParser;
 use eframe::egui;
 use egui_extras::{Size, StripBuilder};
 
@@ -102,7 +103,7 @@ impl BinarySearchApp {
         self.current_search = CurrentSearch::Searching(len, search);
     }
 
-    fn parse_search_input(&self) -> Result<NeedleOwned, String> {
+    fn parse_search_input(&self) -> Result<NeedleOwned, InputParseError> {
         let input = self.search_control_panel.get_search_input();
         let search_type = self.search_control_panel.get_search_type();
         let endianness = self.search_control_panel.get_endianness();
@@ -112,45 +113,37 @@ impl BinarySearchApp {
         let needle = match search_type {
             SearchType::Bit8 => {
                 if is_signed {
-                    let value: i8 = input.parse().map_err(|_| "Invalid signed 8-bit integer")?;
+                    let value = IntParser::parse_i8(input)?;
                     Needle::I8(value)
                 } else {
-                    let value: u8 = input
-                        .parse()
-                        .map_err(|_| "Invalid unsigned 8-bit integer")?;
+                    let value = IntParser::parse_u8(input)?;
                     Needle::U8(value)
                 }
             }
             SearchType::Bit16 => {
                 if is_signed {
-                    let value: i16 = input.parse().map_err(|_| "Invalid signed 16-bit integer")?;
+                    let value = IntParser::parse_i16(input)?;
                     Needle::I16(endianness, value)
                 } else {
-                    let value: u16 = input
-                        .parse()
-                        .map_err(|_| "Invalid unsigned 16-bit integer")?;
+                    let value = IntParser::parse_u16(input)?;
                     Needle::U16(endianness, value)
                 }
             }
             SearchType::Bit32 => {
                 if is_signed {
-                    let value: i32 = input.parse().map_err(|_| "Invalid signed 32-bit integer")?;
+                    let value = IntParser::parse_i32(input)?;
                     Needle::I32(endianness, value)
                 } else {
-                    let value: u32 = input
-                        .parse()
-                        .map_err(|_| "Invalid unsigned 32-bit integer")?;
+                    let value = IntParser::parse_u32(input)?;
                     Needle::U32(endianness, value)
                 }
             }
             SearchType::Bit64 => {
                 if is_signed {
-                    let value: i64 = input.parse().map_err(|_| "Invalid signed 64-bit integer")?;
+                    let value = IntParser::parse_i64(input)?;
                     Needle::I64(endianness, value)
                 } else {
-                    let value: u64 = input
-                        .parse()
-                        .map_err(|_| "Invalid unsigned 64-bit integer")?;
+                    let value = IntParser::parse_u64(input)?;
                     Needle::U64(endianness, value)
                 }
             }
@@ -161,7 +154,7 @@ impl BinarySearchApp {
                 // Parse hex string like "41 42 43" or "414243"
                 let cleaned = input.replace(" ", "").replace("0x", "");
                 if cleaned.len() % 2 != 0 {
-                    return Err("Hex string must have even number of characters".to_string());
+                    return Err("Hex string must have even number of characters".into());
                 }
 
                 let mut bytes = Vec::new();
