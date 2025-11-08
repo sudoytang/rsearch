@@ -6,6 +6,12 @@ pub struct SearchResultsPanel {
     search_results: Vec<SearchResult>,
 }
 
+impl Default for SearchResultsPanel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SearchResultsPanel {
     pub fn new() -> Self {
         Self {
@@ -88,6 +94,6 @@ impl SearchResultsPanel {
                     });
             })
         });
-        return selected_offset;
+        selected_offset
     }
 }

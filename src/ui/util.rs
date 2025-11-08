@@ -79,11 +79,11 @@ impl Selection {
     }
 
     pub fn lower(&self) -> usize {
-        return usize::min(self.start, self.end);
+        usize::min(self.start, self.end)
     }
 
     pub fn upper(&self) -> usize {
-        return usize::max(self.start, self.end);
+        usize::max(self.start, self.end)
     }
 
     pub fn contains(&self, offset: usize) -> bool {

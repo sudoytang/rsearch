@@ -7,17 +7,12 @@ use crate::ui::util::Selection;
 enum DragStatus {
     Idle,
     Bytes(usize),
-    ASCII(usize),
+    Ascii(usize),
 }
 
 impl DragStatus {
     fn type_matches(&self, other: Self) -> bool {
-        match (self, other) {
-            (DragStatus::Idle, DragStatus::Idle) => true,
-            (DragStatus::Bytes(_), DragStatus::Bytes(_)) => true,
-            (DragStatus::ASCII(_), DragStatus::ASCII(_)) => true,
-            _ => false,
-        }
+        matches!((self, other), (DragStatus::Idle, DragStatus::Idle) | (DragStatus::Bytes(_), DragStatus::Bytes(_)) | (DragStatus::Ascii(_), DragStatus::Ascii(_)))
     }
 }
 
@@ -45,6 +40,12 @@ impl HexViewer {
       + Self::DEFAULT_SPACING;
 }
 
+impl Default for HexViewer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HexViewer {
     pub fn new() -> Self {
         Self {
@@ -64,7 +65,7 @@ impl HexViewer {
             DragStatus::Idle => {
                 return;
             }
-            DragStatus::ASCII(offset) => offset,
+            DragStatus::Ascii(offset) => offset,
             DragStatus::Bytes(offset) => offset,
         };
         if resp.clicked() {
@@ -116,7 +117,7 @@ impl HexViewer {
                 data.len(),
                 data.len()
             ));
-            let lines = (data.len() + Self::BPL - 1) / Self::BPL;
+            let lines = data.len().div_ceil(Self::BPL);
 
             let available_width = ui.available_width();
             let bytes_width =
@@ -129,11 +130,9 @@ impl HexViewer {
                 .column(Column::exact(address_width)) // Address
                 .columns(Column::exact(Self::BYTE_COL_WIDTH), Self::BPL) // 16 columns for bytes
                 .column(Column::remainder().at_least(Self::ASCII_COL_MIN_WIDTH)); // ASCII
-            if selection_changed {
-                if let Some(sel) = selection {
-                    let row = sel.lower() / Self::BPL;
-                    table = table.scroll_to_row(row, None);
-                }
+            if selection_changed && let Some(sel) = selection {
+                let row = sel.lower() / Self::BPL;
+                table = table.scroll_to_row(row, None);
             }
             table
                 .header(20.0, |mut header| {
@@ -271,7 +270,7 @@ impl HexViewer {
                                         );
                                     }
 
-                                    self.handle_drag(selection, &resp, DragStatus::ASCII(off));
+                                    self.handle_drag(selection, &resp, DragStatus::Ascii(off));
                                 }
                             });
                         });

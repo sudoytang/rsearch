@@ -9,6 +9,12 @@ pub struct FilePanel {
     file_data: Option<Arc<Mmap>>,
 }
 
+impl Default for FilePanel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FilePanel {
     pub fn new() -> Self {
         Self {
