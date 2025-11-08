@@ -75,10 +75,7 @@ impl IntParser {
         }
 
         let result = match base {
-            10 => u8::from_str_radix(number_part, 10),
-            16 => u8::from_str_radix(number_part, 16),
-            2 => u8::from_str_radix(number_part, 2),
-            8 => u8::from_str_radix(number_part, 8),
+            10 | 16 | 2 | 8 => u8::from_str_radix(number_part, base),
             _ => unreachable!(),
         };
 
@@ -105,10 +102,7 @@ impl IntParser {
         }
 
         let result = match base {
-            10 => i8::from_str_radix(number_part, 10),
-            16 => i8::from_str_radix(number_part, 16),
-            2 => i8::from_str_radix(number_part, 2),
-            8 => i8::from_str_radix(number_part, 8),
+            10 | 16 | 2 | 8 => i8::from_str_radix(number_part, base),
             _ => unreachable!(),
         };
 
@@ -135,10 +129,7 @@ impl IntParser {
         }
 
         let result = match base {
-            10 => u16::from_str_radix(number_part, 10),
-            16 => u16::from_str_radix(number_part, 16),
-            2 => u16::from_str_radix(number_part, 2),
-            8 => u16::from_str_radix(number_part, 8),
+            10 | 16 | 2 | 8 => u16::from_str_radix(number_part, base),
             _ => unreachable!(),
         };
 
@@ -165,10 +156,7 @@ impl IntParser {
         }
 
         let result = match base {
-            10 => i16::from_str_radix(number_part, 10),
-            16 => i16::from_str_radix(number_part, 16),
-            2 => i16::from_str_radix(number_part, 2),
-            8 => i16::from_str_radix(number_part, 8),
+            10 | 16 | 2 | 8 => i16::from_str_radix(number_part, base),
             _ => unreachable!(),
         };
 
@@ -195,10 +183,7 @@ impl IntParser {
         }
 
         let result = match base {
-            10 => u32::from_str_radix(number_part, 10),
-            16 => u32::from_str_radix(number_part, 16),
-            2 => u32::from_str_radix(number_part, 2),
-            8 => u32::from_str_radix(number_part, 8),
+            10 | 16 | 2 | 8 => u32::from_str_radix(number_part, base),
             _ => unreachable!(),
         };
 
@@ -225,10 +210,7 @@ impl IntParser {
         }
 
         let result = match base {
-            10 => i32::from_str_radix(number_part, 10),
-            16 => i32::from_str_radix(number_part, 16),
-            2 => i32::from_str_radix(number_part, 2),
-            8 => i32::from_str_radix(number_part, 8),
+            10 | 16 | 2 | 8 => i32::from_str_radix(number_part, base),
             _ => unreachable!(),
         };
 
@@ -255,10 +237,7 @@ impl IntParser {
         }
 
         let result = match base {
-            10 => u64::from_str_radix(number_part, 10),
-            16 => u64::from_str_radix(number_part, 16),
-            2 => u64::from_str_radix(number_part, 2),
-            8 => u64::from_str_radix(number_part, 8),
+            10 | 16 | 2 | 8 => u64::from_str_radix(number_part, base),
             _ => unreachable!(),
         };
 
@@ -285,10 +264,7 @@ impl IntParser {
         }
 
         let result = match base {
-            10 => i64::from_str_radix(number_part, 10),
-            16 => i64::from_str_radix(number_part, 16),
-            2 => i64::from_str_radix(number_part, 2),
-            8 => i64::from_str_radix(number_part, 8),
+            10 | 16 | 2 | 8 => i64::from_str_radix(number_part, base),
             _ => unreachable!(),
         };
 

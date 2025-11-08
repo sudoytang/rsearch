@@ -25,6 +25,12 @@ pub struct DataInspector {
     radix: Radix,
 }
 
+impl Default for DataInspector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DataInspector {
 
     const EOF_MSG: &'static str = "No Data";
@@ -85,7 +91,7 @@ impl DataInspector {
             }
         } else if abs_value == 0.0 {
             "0.0".to_string()
-        } else if abs_value >= 1e-4 && abs_value < 1e6 {
+        } else if (1e-4..1e6).contains(&abs_value) {
             // Use fixed-point notation for reasonable range
             let formatted = format!("{:.6}", value);
             // Remove trailing zeros after decimal point

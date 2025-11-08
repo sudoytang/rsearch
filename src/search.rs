@@ -209,7 +209,7 @@ impl AsyncSearch {
 
     pub fn drain<F>(&self, mut callback: F) -> SearchState
     where
-        F: FnMut(usize) -> (),
+        F: FnMut(usize),
     {
         loop {
             match self.try_get() {

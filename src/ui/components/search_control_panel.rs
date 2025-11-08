@@ -12,6 +12,12 @@ pub struct SearchControlPanel {
     is_signed: bool,
 }
 
+impl Default for SearchControlPanel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SearchControlPanel {
     pub fn new() -> Self {
         Self {

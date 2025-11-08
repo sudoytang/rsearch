@@ -153,7 +153,7 @@ impl BinarySearchApp {
             SearchType::Bytes => {
                 // Parse hex string like "41 42 43" or "414243"
                 let cleaned = input.replace(" ", "").replace("0x", "");
-                if cleaned.len() % 2 != 0 {
+                if cleaned.len().is_multiple_of(2) {
                     return Err("Hex string must have even number of characters".into());
                 }
 
