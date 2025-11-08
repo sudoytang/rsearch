@@ -1,12 +1,14 @@
 use crate::search::{AsyncSearch, Needle, NeedleOwned, SearchState};
 use crate::ui;
+use crate::ui::bytes_parse::{Base64Parser, BytesParser, EscapedParser, HexParser};
 use crate::ui::components::{
     DataInspector, FilePanel, HexViewer, SearchControlPanel, SearchResultsPanel,
 };
-use crate::ui::util::{Encoding, SearchType, Selection, InputParseError};
+use crate::ui::util::{Encoding, SearchType, Selection};
 use crate::ui::int_parse::IntParser;
 use eframe::egui;
 use egui_extras::{Size, StripBuilder};
+use color_eyre::Result as EyreReult;
 
 enum CurrentSearch {
     Empty,
@@ -103,7 +105,7 @@ impl BinarySearchApp {
         self.current_search = CurrentSearch::Searching(len, search);
     }
 
-    fn parse_search_input(&self) -> Result<NeedleOwned, InputParseError> {
+    fn parse_search_input(&self) -> EyreReult<NeedleOwned> {
         let input = self.search_control_panel.get_search_input();
         let search_type = self.search_control_panel.get_search_type();
         let endianness = self.search_control_panel.get_endianness();
@@ -147,24 +149,26 @@ impl BinarySearchApp {
                     Needle::U64(endianness, value)
                 }
             }
-            SearchType::String => match encoding {
-                Encoding::UTF8 => Needle::Str(input),
-            },
-            SearchType::Bytes => {
-                // Parse hex string like "41 42 43" or "414243"
-                let cleaned = input.replace(" ", "").replace("0x", "");
-                if cleaned.len().is_multiple_of(2) {
-                    return Err("Hex string must have even number of characters".into());
+            SearchType::String => if let Encoding::String(e) = encoding {
+                match e {
+                    ui::StringEncoding::UTF8 => Needle::Str(input),
                 }
+            } else {
+                unreachable!("this is not possible")
+                // TODO: should we be more graceful about this??
+            }
+            SearchType::Bytes => if let Encoding::Bytes(e) = encoding {
+                let data = match e {
+                    ui::BytesEncoding::Hex => HexParser.parse(input)?,
+                    ui::BytesEncoding::Base64 => Base64Parser.parse(input)?,
+                    ui::BytesEncoding::Escaped => EscapedParser.parse(input)?,
+                };
 
-                let mut bytes = Vec::new();
-                for i in (0..cleaned.len()).step_by(2) {
-                    let hex_byte = &cleaned[i..i + 2];
-                    let byte = u8::from_str_radix(hex_byte, 16).map_err(|_| "Invalid hex byte")?;
-                    bytes.push(byte);
-                }
+                return Ok(NeedleOwned::from_data(data));
 
-                return Ok(NeedleOwned::from_data(bytes));
+            } else {
+                unreachable!("this is not possible")
+                // TODO: should we be more graceful about this??
             }
         };
 

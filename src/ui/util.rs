@@ -1,6 +1,4 @@
 use strum_macros::EnumIter;
-use crate::ui::int_parse::IntParserError;
-use std::{error::Error, fmt::Display};
 
 #[non_exhaustive]
 #[derive(Clone, Copy, PartialEq, EnumIter)]
@@ -42,19 +40,53 @@ impl SearchType {
     }
 
     pub fn is_encoding_enabled(&self) -> bool {
-        matches!(self, SearchType::String)
+        matches!(self, SearchType::String | SearchType::Bytes)
     }
 }
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, EnumIter)]
-pub enum Encoding {
+pub enum StringEncoding {
     UTF8,
     /* ... */
 }
 
-impl std::fmt::Display for Encoding {
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, EnumIter)]
+pub enum BytesEncoding {
+    Hex,
+    Base64,
+    Escaped,
+    /* ... */
+}
+
+impl std::fmt::Display for BytesEncoding {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
+    }
+}
+
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Encoding {
+    NA,
+    String(StringEncoding),
+    Bytes(BytesEncoding),
+}
+
+
+impl std::fmt::Display for StringEncoding {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::fmt::Display for Encoding {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Encoding::NA => write!(f, ""),
+            Encoding::String(e) => write!(f, "{e}"),
+            Encoding::Bytes(e) => write!(f, "{e}"),
+        }
     }
 }
 
@@ -105,44 +137,3 @@ pub struct SearchResult {
     pub offset: usize,
 }
 
-#[derive(Debug, Clone)]
-pub enum InputParseError {
-    IntParser(IntParserError),
-    Other(String),
-}
-
-impl Display for InputParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            InputParseError::IntParser(err) => write!(f, "{}", err),
-            InputParseError::Other(msg) => write!(f, "{}", msg),
-        }
-    }
-}
-
-impl Error for InputParseError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            InputParseError::IntParser(err) => Some(err),
-            InputParseError::Other(_) => None,
-        }
-    }
-}
-
-impl From<IntParserError> for InputParseError {
-    fn from(err: IntParserError) -> Self {
-        InputParseError::IntParser(err)
-    }
-}
-
-impl From<String> for InputParseError {
-    fn from(msg: String) -> Self {
-        InputParseError::Other(msg)
-    }
-}
-
-impl From<&str> for InputParseError {
-    fn from(msg: &str) -> Self {
-        InputParseError::Other(msg.to_string())
-    }
-}

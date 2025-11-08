@@ -3,7 +3,8 @@ use core::f32;
 use eframe::egui;
 use strum::IntoEnumIterator;
 use crate::search::Endianness;
-use crate::ui::util::{SearchType, Encoding};
+use crate::ui::{BytesEncoding, Encoding, StringEncoding};
+use crate::ui::util::{SearchType};
 pub struct SearchControlPanel {
     search_type: SearchType,
     search_input: String,
@@ -24,7 +25,7 @@ impl SearchControlPanel {
             search_type: SearchType::Bit8,
             search_input: String::new(),
             endianness: Endianness::LittleEndian,
-            encoding: Encoding::UTF8,
+            encoding: Encoding::NA,
             is_signed: false,
         }
     }
@@ -110,13 +111,52 @@ impl SearchControlPanel {
                 
                 // Encoding Combobox
                 ui.add_enabled_ui(self.search_type.is_encoding_enabled(), |ui| {
+                    // Update encoding based on search_type BEFORE creating the ComboBox
+                    match self.search_type {
+                        SearchType::Bytes => {
+                            if !matches!(self.encoding, Encoding::Bytes(_)) {
+                                self.encoding = Encoding::Bytes(BytesEncoding::Hex);
+                            }
+                        }
+                        SearchType::String => {
+                            if !matches!(self.encoding, Encoding::String(_)) {
+                                self.encoding = Encoding::String(StringEncoding::UTF8);
+                            }
+                        }
+                        _ => {
+                            self.encoding = Encoding::NA
+                        }
+                    }
+                    
                     ui.label("Encoding");
                     egui::ComboBox::from_id_salt("SearchControlPanel.Encoding")
                     .selected_text(format!("{}", self.encoding))
                     .width(70.)
                     .show_ui(ui, |ui| {
-                        for encoding in Encoding::iter() {
-                            ui.selectable_value(&mut self.encoding, encoding, format!("{}", encoding));
+                        match self.search_type {
+                            SearchType::Bytes => {
+                                // We already ensured we have the correct encoding variant above
+                                if let Encoding::Bytes(ref mut e) = self.encoding {
+                                    for encoding in BytesEncoding::iter() {
+                                        ui.selectable_value(e, encoding, format!("{}", encoding));
+                                    }
+                                } else {
+                                    unreachable!()
+                                }
+                            }
+                            SearchType::String => {
+                                // We already ensured we have the correct encoding variant above
+                                if let Encoding::String(ref mut e) = self.encoding {
+                                    for encoding in StringEncoding::iter() {
+                                        ui.selectable_value(e, encoding, format!("{}", encoding));
+                                    }
+                                } else {
+                                    unreachable!()
+                                }
+                            }
+                            _ => {
+                                // No selectable values for NA encoding
+                            }
                         }
                     });
                 });
